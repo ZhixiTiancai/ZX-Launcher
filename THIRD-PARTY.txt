@@ -1,0 +1,51 @@
+﻿智熄的启动器 0.1.6
+
+Custom interface and importer source: source/src/ . Distributed under MIT (see source/LICENSE).
+
+Prism Launcher 11.1.1
+Official unmodified Windows MinGW x64 portable binary:
+https://github.com/PrismLauncher/PrismLauncher/releases/tag/11.1.1
+https://prismlauncher.org/
+Source archive: third-party/source/PrismLauncher-11.1.1.tar.gz
+License: GPL-3.0-only, with incorporated code under other licenses.
+The release source contains COPYING, LICENSES, source, submodule content, and build instructions.
+The original binary, its name, branding, dependency license notices and resources are retained under engine/.
+This custom interface is not Prism Launcher and is not endorsed by or affiliated with its project.
+
+Eclipse Temurin OpenJDK 17.0.20.1+1 JRE, Windows x64, HotSpot
+https://adoptium.net/temurin/releases/?version=17
+License: GPLv2 with Classpath Exception and bundled third-party notices, see runtime/jdk-*/legal/.
+Corresponding source included: third-party/source/OpenJDK17U-jdk-sources_17.0.20.1_1.tar.gz
+Corresponding source upstream:
+https://github.com/adoptium/temurin17-binaries/releases/tag/jdk-17.0.20.1%2B1
+Source can also be fetched from https://api.adoptium.net/v3/binary/version/jdk-17.0.20.1%2B1/windows/x64/sources/hotspot/normal/eclipse
+
+Eclipse Temurin OpenJDK 21.0.12.1+1 JRE, Windows x64, HotSpot
+https://adoptium.net/temurin/releases/?version=21
+License: GPLv2 with Classpath Exception and bundled third-party notices, see runtime/jdk-21.0.12.1+1-jre/legal/.
+Corresponding source included: third-party/source/OpenJDK21U-jdk-sources_21.0.12.1_1.tar.gz
+Corresponding source upstream:
+https://github.com/adoptium/temurin21-binaries/releases/tag/jdk-21.0.12.1%2B1
+
+The user-provided modpack, mods, resource packs, configs, scripts and saves retain their original authors' licenses.
+This archive is assembled for the requesting user's personal use from their supplied modpack.
+No Minecraft game binaries, Microsoft credentials or account tokens are included in this distribution.
+
+Default grass block image: unmodified Prism Launcher 11.1.1 resource
+launcher/resources/multimc/48x48/minecraft.png, embedded into the custom UI.
+The original resource list credits:
+http://www.minecraftforum.net/forums/show-your-creation/fan-art/1574882-icon-better-minecraft-icon
+Its upstream source and notices are retained in the Prism source archive above.
+CurseForge pack metadata (0.1.9): accessed through the independent CurseTools public proxy
+https://api.curse.tools/ using CurseForge-compatible project/file metadata schemas.
+This proxy is not a Microsoft/Mojang login service and receives no launcher account credentials.
+Mod binaries, resource packs and shaderpacks are fetched from returned HTTPS URLs and
+verified against the metadata length and SHA-1. Missing download URLs require manual download.
+API schema: https://docs.curseforge.com/rest-api/
+
+Microsoft WebView2 SDK 1.0.4258.31
+Original Microsoft package: https://www.nuget.org/packages/Microsoft.Web.WebView2/1.0.4258.31
+Includes Microsoft.Web.WebView2.Core.dll, Microsoft.Web.WebView2.Wpf.dll and x64 WebView2Loader.dll.
+The original SDK license is included in WebView2-LICENSE.txt.
+Microsoft Edge WebView2 Runtime is a separately installed Microsoft component.
+NameMC website content and downloaded skins remain subject to their respective authors and site terms.

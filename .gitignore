@@ -1,0 +1,11 @@
+.private/
+release/
+dist/
+build/*/
+build/*.exe
+build/*.dll
+build/*.json
+build/*.txt
+build/*.log
+*.user
+.vs/
