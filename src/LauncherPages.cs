@@ -9,8 +9,8 @@ namespace FoolLauncher {
  public sealed class LauncherPages {
   readonly Window Window;readonly UiPreferences Preferences;readonly Action LanguageChanged;readonly SkinLibraryPage Skins;string Page="library";bool Loading;
   T Get<T>(string name)where T:class{return Window.FindName(name) as T;}
-  public LauncherPages(Window window,string root,Action languageChanged){
-   Window=window;Preferences=new UiPreferences(root);LanguageChanged=languageChanged;Skins=new SkinLibraryPage(window,root);
+  public LauncherPages(Window window,string root,Action languageChanged,AccountStore accounts=null,Func<Func<System.Threading.CancellationToken,System.Threading.Tasks.Task>,System.Threading.Tasks.Task> skinRunner=null,Func<bool> busy=null){
+   Window=window;Preferences=new UiPreferences(root);LanguageChanged=languageChanged;Skins=new SkinLibraryPage(window,root,accounts,skinRunner,busy);
    Get<Button>("LibraryNav").Click+=(s,e)=>Navigate("library");Get<Button>("SkinsNav").Click+=(s,e)=>Navigate("skins");Get<Button>("SettingsNav").Click+=(s,e)=>Navigate("settings");
    Loading=true;Get<ComboBox>("LanguageBox").SelectedIndex=Preferences.Settings.Language=="en-US"?1:0;Get<Slider>("BackgroundShade").Value=Preferences.Settings.Shade;Loading=false;
    Get<ComboBox>("LanguageBox").SelectionChanged+=(s,e)=>{if(Loading)return;Change(()=>Preferences.Settings.Language=Get<ComboBox>("LanguageBox").SelectedIndex==1?"en-US":"zh-CN",true);};
@@ -27,6 +27,7 @@ namespace FoolLauncher {
    foreach(var palette in UiPreferences.Themes){var p=palette;var row=new StackPanel{Orientation=Orientation.Horizontal};row.Children.Add(new Ellipse{Width=17,Height=17,Fill=(Brush)new BrushConverter().ConvertFromString(p.Id=="white"||p.Id=="black"?p.Base:p.Accent),Margin=new Thickness(0,0,8,0),Stroke=Brushes.Gray,StrokeThickness=0.5});row.Children.Add(new TextBlock{Text=UiText.T(p.Name)+(Preferences.Settings.Theme==p.Id?"  ✓":""),VerticalAlignment=VerticalAlignment.Center});var b=new Button{Content=row,Padding=new Thickness(12,10,12,10),Margin=new Thickness(0,0,10,10),MinWidth=115,ToolTip=UiText.T(p.Name)};b.SetResourceReference(Control.BackgroundProperty,Preferences.Settings.Theme==p.Id?"Brush.Selection":"Brush.Button");b.Click+=(s,e)=>Change(()=>Preferences.Settings.Theme=p.Id,false);choices.Children.Add(b);}
    Skins.RefreshLanguage();Navigate(Page);
   }
+  public void RefreshAccount(){Skins.AccountChanged();}
   public void Navigate(string page){Page=page;Skins.SetVisible(page=="skins");Get<FrameworkElement>("LibraryPage").Visibility=page=="library"?Visibility.Visible:Visibility.Collapsed;Get<FrameworkElement>("SkinsPage").Visibility=page=="skins"?Visibility.Visible:Visibility.Collapsed;Get<FrameworkElement>("SettingsPage").Visibility=page=="settings"?Visibility.Visible:Visibility.Collapsed;foreach(var pair in new[]{new[]{"LibraryNav","library"},new[]{"SkinsNav","skins"},new[]{"SettingsNav","settings"}}){var button=Get<Button>(pair[0]);if(pair[1]==page){button.SetResourceReference(Control.BackgroundProperty,"Brush.Selection");button.SetResourceReference(Control.ForegroundProperty,"Brush.Accent");}else{button.Background=Brushes.Transparent;button.SetResourceReference(Control.ForegroundProperty,"Brush.Muted");}}}
  }
 }

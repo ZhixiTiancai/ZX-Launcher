@@ -12,7 +12,7 @@ using Microsoft.Win32;
 using FoolLauncher;
 
 [assembly:AssemblyTitle("智熄的启动器更新器")]
-[assembly:AssemblyVersion("0.2.6.0")]
+[assembly:AssemblyVersion("0.2.7.0")]
 internal static class UpdaterProgram {
  [STAThread] static int Main(string[] args) {
   var app=new Application();var ui=(Window)XamlReader.Parse(@"

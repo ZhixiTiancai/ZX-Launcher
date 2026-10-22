@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
@@ -32,6 +32,9 @@ namespace FoolLauncher {
    var missing=Json.Read<MissingFile[]>(Path.Combine(service.Folder(instance),"missing-files.json"));if(missing.Length!=1||missing[0].downloads.Single()!=manual.manualUrl)throw new Exception("Missing-file report omitted manual download link");
    string local=Path.Combine(root,"manual.jar");System.IO.File.WriteAllText(local,"verified",new UTF8Encoding(false));if(service.AddLocalFiles(instance,new[]{local},CancellationToken.None).GetAwaiter().GetResult()!=1||service.Repair(instance,progress,CancellationToken.None).GetAwaiter().GetResult()!=0||!instance.Ready)throw new Exception("Manual CF file restore/hash verification failed");
    bool denied=false;var wrong=MakeFile(1,999,"test.jar","https://example.com/test.jar");try{CurseForgePack.ValidateFile(manifest.files[0],wrong);}catch(InvalidDataException){denied=true;}if(!denied)throw new Exception("Mismatched CF metadata IDs accepted");
+   var archived=MakeFile(1,101,"archived.jar","https://edge.forgecdn.net/files/0/101/archived.jar");archived.isAvailable=false;archived.fileStatus=8;CurseForgePack.ValidateFile(manifest.files[0],archived);
+   foreach(int blocked in new[]{0,5,6,7}){archived.fileStatus=blocked;bool blockedFile=false;try{CurseForgePack.ValidateFile(manifest.files[0],archived);}catch(InvalidDataException){blockedFile=true;}if(!blockedFile)throw new Exception("Unavailable/rejected/malware/deleted CF file accepted");}
+   archived.fileStatus=8;archived.hashes=new CurseHash[0];denied=false;try{CurseForgePack.ValidateFile(manifest.files[0],archived);}catch(InvalidDataException){denied=true;}if(!denied)throw new Exception("Archived file accepted without SHA1");
    wrong=MakeFile(1,101,"../outside.jar","https://example.com/test.jar");denied=false;try{CurseForgePack.ValidateFile(manifest.files[0],wrong);}catch(InvalidDataException){denied=true;}if(!denied)throw new Exception("Unsafe CF filename accepted");
    manifest.overrides="../outside";denied=false;try{CurseForgePack.Dependencies(manifest);}catch(InvalidDataException){denied=true;}if(!denied)throw new Exception("CF override traversal accepted");manifest.overrides="overrides";
    manifest.files[1].fileID=101;denied=false;try{resolver.Resolve(manifest,progress,CancellationToken.None).GetAwaiter().GetResult();}catch(InvalidDataException){denied=true;}if(!denied)throw new Exception("Duplicate CF references accepted");

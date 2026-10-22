@@ -14,7 +14,7 @@ using Microsoft.Win32;
 
 [assembly:System.Reflection.AssemblyTitle("智熄的启动器")]
 [assembly:System.Reflection.AssemblyProduct("智熄的启动器")]
-[assembly:System.Reflection.AssemblyVersion("0.2.6.0")]
+[assembly:System.Reflection.AssemblyVersion("0.2.7.0")]
 namespace FoolLauncher {
  public static class Program {
   [STAThread] public static int Main(string[] args) {
@@ -33,6 +33,7 @@ namespace FoolLauncher {
    if(args[0]=="--self-test")return SelfTests.Run();
    if(args[0]=="--verify-update"&&args.Length==2){string stage=Path.Combine(Path.GetTempPath(),"Zhixi-verify-"+Guid.NewGuid().ToString("N"));var update=LauncherUpdateCore.Stage(args[1],stage,CancellationToken.None);Console.WriteLine("VERIFIED_UPDATE="+update.Version+" FILES="+update.Files.Length);return 0;}
    if(args.Length<3)throw new ArgumentException("用法：--prepare <root> <pack>、--repair <root> <instance-id> 或 --metadata <root> <instance-id>");
+   if(args[0]=="--import-only"){var imported=await new PackService(args[1]).Import(args[2],new Progress<Update>(p=>Console.WriteLine(p.Message)),CancellationToken.None);Console.WriteLine("IMPORTED="+imported.Id+" FILES="+imported.FileCount);return 0;}
    var service=new PackService(args[1]);var progress=new Progress<Update>(p=>Console.WriteLine(p.Done+"/"+p.Total+" "+p.Message));Instance i;
    if(args[0]=="--prepare")i=await service.Import(args[2],progress,CancellationToken.None);
    else if(args[0]=="--repair"||args[0]=="--metadata"||args[0]=="--game-files"||args[0]=="--runtime"||args[0]=="--export"||args[0]=="--export-saves")i=service.List().First(x=>x.Id==args[2]);
@@ -127,7 +128,7 @@ namespace FoolLauncher {
     if(!DeleteConfirmation.Show(Window,UiText.T("删除整合包"),instance.Name,UiText.T("此整合包中的模组、配置和全部存档都会一起移入回收站。"),UiText.T("需要恢复时，可在 Windows 回收站中还原此整合包文件夹。")))return;
     await Run(async progress=>{await Task.Run(()=>PackRemoval.Recycle(Service,instance));Refresh(null);Log(UiText.T("整合包已移入 Windows 回收站。"));});
    };
-   Pages=new LauncherPages(Window,root,()=>{ShowPack();RefreshAccount();});
+   Pages=new LauncherPages(Window,root,()=>{ShowPack();RefreshAccount();},Accounts,action=>Run(async p=>await action(TaskCancel.Token)),()=>Busy);
    new LauncherUpdateUi(Window,root,()=>!Busy,Log,()=>Pages.Navigate("settings"));
    Refresh(null);Log(UiText.T("启动器已就绪。先校验整合包文件，再完成正版登录，即可尝试启动。 "));
    var timer=new DispatcherTimer{Interval=TimeSpan.FromSeconds(5)};timer.Tick+=(s,e)=>RefreshAccount();timer.Start();
@@ -211,6 +212,7 @@ namespace FoolLauncher {
    Process.Start(info);
   }
   void RefreshAccount() {
+   if(Pages!=null)Pages.RefreshAccount();
    try{var account=Accounts.Current();bool offline=Accounts.Mode()=="offline";AccountButton.Content=account==null?UiText.T("账号 · 未登录"):UiText.T("账号 · ")+account.Name+(offline?UiText.T("（离线）"):"");AccountText.Text=account==null?UiText.T("未选择账号，点击右上角“账号”登录或选择角色。"):UiText.T("当前账号：")+account.Name+UiText.T(offline?UiText.T(" · 离线模式"):UiText.T(" · 微软账号（启动时验证）"));}
    catch{AccountButton.Content=UiText.T("账号 · 读取失败");AccountText.Text=UiText.T("账号文件无法读取，原文件已保留。");}
   }

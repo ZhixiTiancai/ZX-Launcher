@@ -1,4 +1,4 @@
-﻿# 智熄的启动器 0.2.6
+﻿# 智熄的启动器 0.2.7
 
 [下载最新版](https://github.com/ZhixiTiancai/ZX-Launcher/releases/latest) · [发布与自动更新说明](发布更新说明.md)
 
@@ -152,3 +152,14 @@ Never publish the private key or package an in-use launcher directory.
 asset URL. Release preparation emits an ASCII-named, version-pinned program ZIP and
 a signed update.json; publication uploads a complete draft before marking it latest.
 See 发布更新说明.md for the publisher workflow. The original 0.2.5 signing key is retained.
+
+0.2.7 fixes CurseForge archived-file handling: an explicitly archived (status 8) pinned
+file may be resolved while retaining ID/game/size/SHA-1 checks. Unavailable unknown,
+rejected, malware and deleted statuses remain rejected. The provided 390-file pack
+was imported into an isolated directory and the archived CDN file's SHA-1 verified.
+SkinApplication uploads validated PNGs to the official Minecraft profile service with
+the current authorized account, verifies the profile before upload and the returned
+active skin afterwards, preserves capes and unknown account fields, and stores one
+selected skin ID per account only after success. Unauthorized sessions may renew their
+existing authorization; no third-party endpoint receives account tokens. Mock tests
+exercise success, failed uploads, account mismatch, renewal, model choice and persistence.

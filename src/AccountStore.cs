@@ -63,6 +63,9 @@ namespace FoolLauncher {
    Mutate(records=>records.Add(record));Select(id,true);return Choice(record);
   }
   public void Remove(string id){Mutate(records=>records.RemoveAll(a=>Text(Object(a,"profile"),"id")==id));if(Settings().ProfileId==id)SignOut();}
+  internal AccountChoice SkinAccount(){Guard();var account=Current();if(account==null||Mode()!="online"||account.Type!="MSA"||!account.OwnsGame)throw new IOException(UiText.T("请先选择拥有 Java 版的微软账号；离线模式不能应用正版皮肤。"));if(!Regex.IsMatch(account.Id??"",@"\A[a-fA-F0-9]{32}\z"))throw new InvalidDataException("Invalid Minecraft profile.");return account;}
+  internal void RefreshForSkin(string id,Dictionary<string,object> record){var refreshed=Choice(record);if(refreshed.Id!=id||refreshed.Type!="MSA"||!refreshed.OwnsGame||String.IsNullOrEmpty(Text(Object(record,"ygg"),"token")))throw new InvalidDataException("Refreshed Minecraft profile mismatch.");Mutate(records=>{var target=records.Single(a=>Text(Object(a,"profile"),"id")==id);foreach(var key in new[]{"msa-client-id","msa","utoken","xrp-mc","ygg","entitlement","profile"})if(record.ContainsKey(key))target[key]=record[key];});}
+  internal void SaveSkin(string id,Dictionary<string,object> skin){Mutate(records=>{var target=records.Single(a=>Text(Object(a,"profile"),"id")==id);Object(target,"profile")["skin"]=skin;});}
   public string LaunchArguments() {
    var selected=Current();if(selected==null)throw new IOException("请点击右上角“账号”，选择账号或添加账号后再启动。");
    if(!Regex.IsMatch(selected.Name,@"\A[A-Za-z0-9_]{1,16}\z"))throw new InvalidDataException("账号角色名无效。");

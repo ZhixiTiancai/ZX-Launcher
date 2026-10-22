@@ -13,7 +13,7 @@ namespace FoolLauncher {
  public sealed class CurseLoader {public string id;public bool primary;}
  public sealed class CurseReference {public int projectID,fileID;public bool required=true;}
  public sealed class CurseHash {public string value;public int algo;}
- public sealed class CurseFile {public int id,modId,gameId;public string fileName,downloadUrl;public long fileLength;public CurseHash[] hashes;public bool isAvailable;}
+ public sealed class CurseFile {public int id,modId,gameId,fileStatus;public string fileName,downloadUrl;public long fileLength;public CurseHash[] hashes;public bool isAvailable;}
  public sealed class CurseFileResponse {public CurseFile data;}
  public sealed class CurseLinks {public string websiteUrl;}
  public sealed class CurseProject {public int id,gameId,classId;public CurseLinks links;}
@@ -46,7 +46,10 @@ namespace FoolLauncher {
    return result;
   }
   internal static CurseFile ValidateFile(CurseReference reference,CurseFile file) {
-   if(file==null||file.id!=reference.fileID||file.modId!=reference.projectID||file.gameId!=432||!file.isAvailable||file.fileLength<0||file.fileLength>4L*1024*1024*1024)throw new InvalidDataException("CurseForge 文件编号或大小无效："+reference.projectID+" / "+reference.fileID);
+   if(file==null||file.id!=reference.fileID||file.modId!=reference.projectID||file.gameId!=432||file.fileLength<0||file.fileLength>4L*1024*1024*1024)throw new InvalidDataException("CurseForge 文件编号或大小无效："+reference.projectID+" / "+reference.fileID);
+   // CF's Archived status (8) can still expose the exact manifest-pinned CDN file.
+   // It is distinct from rejected, malware and deleted files; all hashes remain mandatory.
+   if((!file.isAvailable&&file.fileStatus!=8)||file.fileStatus==5||file.fileStatus==6||file.fileStatus==7)throw new InvalidDataException("CurseForge 文件已不可用（状态 "+file.fileStatus+"）："+reference.projectID+" / "+reference.fileID);
    if(String.IsNullOrWhiteSpace(file.fileName)||file.fileName.IndexOfAny(new[]{'/','\\'})>=0)throw new InvalidDataException("CurseForge 文件名无效。");PackService.SafePath(Path.GetTempPath(),file.fileName);
    if(file.hashes==null||!file.hashes.Any(h=>h!=null&&h.algo==1&&Regex.IsMatch(h.value??"",@"\A[0-9a-fA-F]{40}\z")))throw new InvalidDataException("CurseForge 文件缺少 SHA-1 校验值："+file.fileName);
    if(!String.IsNullOrWhiteSpace(file.downloadUrl)){Uri uri;if(!Uri.TryCreate(file.downloadUrl,UriKind.Absolute,out uri)||uri.Scheme!="https"||!String.IsNullOrEmpty(uri.UserInfo))throw new InvalidDataException("CurseForge 文件下载地址不是有效 HTTPS 地址。");}
