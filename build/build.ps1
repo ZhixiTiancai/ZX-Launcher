@@ -9,9 +9,17 @@ $refs = @('Microsoft.VisualBasic.dll','System.dll','System.Core.dll','System.Sec
 $refs += @('Microsoft.Web.WebView2.Core.dll','Microsoft.Web.WebView2.Wpf.dll') | ForEach-Object { '/reference:' + (Join-Path $output $_) }
 $sources = Get-ChildItem -LiteralPath (Join-Path $taskRoot 'src') -Filter '*.cs' | Select-Object -ExpandProperty FullName
 $iconResource = '/resource:' + (Join-Path $taskRoot 'src\assets\default-grass.png') + ',FoolLauncher.DefaultGrass.png'
-& (Join-Path $framework 'csc.exe') /nologo /target:winexe /platform:x64 /optimize+ /utf8output /codepage:65001 ('/out:' + (Join-Path $output '智熄的启动器.exe')) $iconResource @refs @sources
+$logoResource='/resource:'+(Join-Path $taskRoot 'src\assets\launcher-logo.png')+',FoolLauncher.Logo.png'
+$winIcon='/win32icon:'+(Join-Path $taskRoot 'build\launcher.ico')
+$inner=Join-Path $taskRoot 'build\LauncherApp.exe'
+& (Join-Path $framework 'csc.exe') /nologo /main:FoolLauncher.Program /target:winexe /platform:x64 /optimize+ /utf8output /codepage:65001 ('/out:' + $inner) $winIcon $logoResource $iconResource @refs @sources
 if ($LASTEXITCODE -ne 0) { throw '编译失败' }
-& (Join-Path $framework 'csc.exe') /nologo /target:exe /platform:x64 /optimize+ /utf8output /codepage:65001 ('/out:' + (Join-Path $taskRoot 'build\PackTools.exe')) $iconResource @refs @sources
+& (Join-Path $framework 'csc.exe') /nologo /main:FoolLauncher.Program /target:exe /platform:x64 /optimize+ /utf8output /codepage:65001 ('/out:' + (Join-Path $taskRoot 'build\PackTools.exe')) $logoResource $iconResource @refs @sources
 if ($LASTEXITCODE -ne 0) { throw '工具编译失败' }
+$versionFile=Join-Path $taskRoot 'build\PortableVersion.cs'
+$versionText=[regex]::Match([IO.File]::ReadAllText((Join-Path $taskRoot 'src\Program.cs')),'\[assembly:System.Reflection.AssemblyVersion\("[^"]+"\)\]').Value
+[IO.File]::WriteAllText($versionFile,('[assembly:System.Reflection.AssemblyTitle("智熄的启动器")]'+[Environment]::NewLine+$versionText),[Text.Encoding]::UTF8)
+& (Join-Path $framework 'csc.exe') /nologo /main:FoolLauncher.PortableEntry /target:winexe /platform:x64 /optimize+ /utf8output /codepage:65001 ('/out:'+(Join-Path $output '智熄的启动器.exe')) $winIcon ('/resource:'+$inner+',Zhixi.LauncherApp.exe') @refs $versionFile (Join-Path $taskRoot 'src\PortableEntry.cs') (Join-Path $taskRoot 'src\PortableLayout.cs')
+if ($LASTEXITCODE -ne 0) { throw '便携入口编译失败' }
 Copy-Item -LiteralPath (Join-Path $taskRoot 'src\App.xaml') -Destination (Join-Path $output 'App.xaml') -Force
 Write-Output $output

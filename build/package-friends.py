@@ -14,6 +14,13 @@ target = dist / f'智熄的启动器-{version}-朋友分享版-不含整合包-W
 files = {}
 generated = {}
 
+def portable_name(name):
+    if name == '智熄的启动器.exe':
+        return name
+    if name.startswith(('data/', 'runtime/', 'exports/')):
+        return 'minecraft/' + name
+    return 'minecraft/launcher/' + name
+
 def digest(stream):
     return hashlib.file_digest(stream, 'sha256').hexdigest()
 
@@ -40,6 +47,8 @@ def original_files(archive_path, prefix):
             add(source, prefix + '/' + relative.as_posix())
 
 add(release / '智熄的启动器.exe', '智熄的启动器.exe')
+add(workspace / 'build/LauncherApp.exe', 'LauncherApp.exe')
+generated['layout-v2'] = b'2'
 add(release / 'App.xaml', 'App.xaml')
 add(release / '智熄更新器.exe', '智熄更新器.exe')
 # Only the original, pinned Microsoft WebView2 SDK binaries/license are distributed.
@@ -102,15 +111,17 @@ with zipfile.ZipFile(target, 'w', zipfile.ZIP_DEFLATED, compresslevel=6) as arch
     # EXE is at ZIP root, not hidden inside another directory.
     archive.write(files.pop('智熄的启动器.exe'), '智熄的启动器.exe')
     for name, source in sorted(files.items()):
-        archive.write(source, name)
+        archive.write(source, portable_name(name))
     for name, content in generated.items():
-        archive.writestr(name, content)
+        archive.writestr(portable_name(name), content)
 with zipfile.ZipFile(target) as archive:
     assert archive.testzip() is None, 'ZIP CRC failed'
     assert archive.namelist()[0] == '智熄的启动器.exe'
     assert not any(n.startswith('data/instances/') for n in archive.namelist())
-    assert 'engine/prismlauncher.exe' in archive.namelist()
-    assert any(n.startswith('runtime/') and n.endswith('/bin/javaw.exe') for n in archive.namelist())
+    assert {n.split('/')[0] for n in archive.namelist()} == {'智熄的启动器.exe', 'minecraft'}
+    assert 'minecraft/launcher/engine/prismlauncher.exe' in archive.namelist()
+    assert 'minecraft/launcher/LauncherApp.exe' in archive.namelist()
+    assert any(n.startswith('minecraft/runtime/') and n.endswith('/bin/javaw.exe') for n in archive.namelist())
 with target.open('rb') as stream:
     sha = digest(stream)
 target.with_suffix('.zip.sha256.txt').write_text(sha + '  ' + target.name + '\n', encoding='utf-8')

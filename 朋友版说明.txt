@@ -1,11 +1,12 @@
-﻿智熄的启动器 0.2.7 — 朋友分享版（不含整合包）
+﻿智熄的启动器 0.2.8 — 朋友分享版（不含整合包）
 适用系统：Windows 10 / 11，64 位，.NET Framework 4.8
 
 解压后怎样启动？
 1. 将整个 ZIP 完整解压到一个可以写入文件的文件夹。
 2. 双击解压后第一层的“智熄的启动器.exe”。
 不要在压缩软件里面直接运行，也不要只把 EXE 单独拷走。
-旁边的 App.xaml、DLL、engine、runtime、data 等文件请一起保留。
+第一层只有“智熄的启动器.exe”和 minecraft 文件夹，二者请一起保留。
+程序组件、游戏数据、源码和说明均已放入 minecraft，不能只拷走 EXE。
 已附带 Java 17 / 21 与原版 Prism Launcher 11.1.1，无需安装 Node 或开发工具。
 
 添加自己的整合包
@@ -45,15 +46,18 @@
 运行与文件位置
 按游戏版本选择随附 Java：例如 Minecraft 1.20.1 使用 Java 17，1.21.1 使用 Java 21。
 其他游戏版本可能需要其他 Java，可在 Prism 的设置中选择相应运行时。
-整合包：data/instances/<实例编号>/minecraft；世界通常在该目录的 saves 中。
-导出文件默认保存在 exports 中。修改整合包或导出之前请先退出游戏与 Prism。
+整合包：minecraft/versions/<整合包名称-短编号>/minecraft。
+每个包的 minecraft 里直接是 mods、config、saves、resourcepacks 等游戏文件。
+旧版时间编号文件夹会自动改为整合包名称；已自定义的显示名称和图标保留。
+导出文件默认保存在 minecraft/exports 中。修改整合包或导出之前请先退出游戏与 Prism。
 
 此分享包不含你的整合包、账号、授权令牌、存档、截图、导出文件或使用日志。
 首次打开整合包库为空是正常现象。朋友需要自行导入整合包并登录自己的账号。
-以后分享请发送原始 ZIP，避免把使用后生成的 data、logs、exports 或备份一起打包。
-data/accounts.json 含有敏感授权信息，切勿发给别人。
+以后分享请发送原始 ZIP，避免把使用后生成的 minecraft 文件夹直接发给别人；其中含个人账号和整合包。
+minecraft/data/accounts.json 含有敏感授权信息，切勿发给别人。
 
-source 是中文界面与下载器源码；third-party/source 是随附组件对应源码。
+minecraft/launcher/source 是中文界面与下载器源码；
+minecraft/launcher/third-party/source 是随附组件对应源码。
 这些文件用于保留许可和提供源码，不需要安装。第三方许可说明见 THIRD-PARTY.txt。
 
 皮肤与外观
@@ -83,3 +87,13 @@ source 是中文界面与下载器源码；third-party/source 是随附组件对
 选择另一张会自动替换之前的使用标记；失败或登录失效时保留原选择并显示提示。
 请先退出 Prism 和游戏，再应用皮肤；下次进入游戏生效。离线模式不能上传官方皮肤。
 删除本地皮肤收藏不会重置账号已使用的官方皮肤。
+
+0.2.8 目录说明
+智熄的启动器.exe：唯一启动入口，已嵌入 ZX 图标。
+minecraft/versions：各整合包，按名称加短编号分文件夹。
+minecraft/runtime：随附 Java 17 / 21。
+minecraft/data：账号、皮肤、外观设置与共享资源缓存，请勿删除。
+minecraft/exports：默认导出的整合包与存档。
+minecraft/launcher：界面、引擎、DLL、源码、许可、说明、日志和更新备份。
+旧版收到 0.2.8 更新后，首次打开自动移动原目录文件，无需重新导入。
+请退出游戏和 Prism 后更新。以后仍使用设置中的自动更新；不要删旧包重装。

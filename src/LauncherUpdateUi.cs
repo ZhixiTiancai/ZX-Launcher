@@ -81,8 +81,9 @@ namespace FoolLauncher {
      var staged=await Task.Run(()=>LauncherUpdateCore.Stage(download,Path.Combine(cache,"verified"),CancellationToken.None));if(staged.Version!=Feed.Version)throw new IOException("更新版本与发布信息不一致。");Package=download;Candidate=staged;
     }
     if(!Ready()){Status("请先等待当前任务完成，再安装启动器更新。");return;}
-    string session=Cache(),worker=Path.Combine(session,"updater.exe"),package=Path.Combine(session,"package.zip");File.Copy(Path.Combine(Root,"智熄更新器.exe"),worker);File.Copy(Package,package);
-    Process.Start(new ProcessStartInfo(worker,"--install "+Quote(package)+" "+Quote(Root)){UseShellExecute=false,WorkingDirectory=session});
+    string install=PortableLayout.InstallRoot(Root);
+    string session=Cache(),worker=Path.Combine(session,"updater.exe"),package=Path.Combine(session,"package.zip");File.Copy(PortableLayout.UpdateTarget(install,"智熄更新器.exe"),worker);File.Copy(Package,package);
+    Process.Start(new ProcessStartInfo(worker,"--install "+Quote(package)+" "+Quote(install)){UseShellExecute=false,WorkingDirectory=session});
     Application.Current.Shutdown();
    }catch(Exception ex){Status(UiText.T("更新未能开始：")+ex.Message);}
    finally{Controls(true);}

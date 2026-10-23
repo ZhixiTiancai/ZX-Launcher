@@ -1,4 +1,4 @@
-﻿# 智熄的启动器 0.2.7
+﻿# 智熄的启动器 0.2.8
 
 [下载最新版](https://github.com/ZhixiTiancai/ZX-Launcher/releases/latest) · [发布与自动更新说明](发布更新说明.md)
 
@@ -10,13 +10,32 @@
 
 Windows WPF 中文整合包管理界面，独立实现 Modrinth 整合包导入、客户端文件下载及哈希校验。原生账号管理和可配置的微软设备授权在本界面中完成；通过子进程调用未修改的 Prism Launcher 11.1.1，完成游戏本体与模组加载器安装、Minecraft 启动。
 
+## 便携目录（0.2.8 起）
+
+```text
+智熄的启动器.exe           # 唯一入口，嵌入用户提供的 ZX 图标
+minecraft/
+  versions/整合包名称-短编号/minecraft/  # mods、config、saves 等
+  runtime/                 # Java 17 / 21
+  data/                    # 账号、皮肤、设置、共享游戏缓存
+  exports/                 # 导出的整合包与存档
+  launcher/                # 界面、DLL、Prism 引擎、源码、许可和说明
+    logs/
+    updates-backup/
+```
+
+旧版更新后首次运行自动迁移。保留原文件内容，遇到同名目标会停止并保留两边数据；更新失败回滚程序文件。`versions` 文件夹按整合包名称加短编号排列，游戏目录按钮仍可直接打开 mods/config/saves 所在位置。
+Prism 的原版实例结构要求每个实例下保留 `minecraft` 游戏目录，因此保留这一层。程序更新包继续使用旧版认识的逻辑文件名，由新版更新器映射到内部目录，使 0.2.5–0.2.7 也能验证并升级。
+
+构建目录 `release/FoolLauncher` 是签名打包的中间产物；分享应使用 `dist` 生成的朋友 ZIP。
+
 ## 构建
 
 在 Windows 10/11 64 位、.NET Framework 4.8 环境中运行 `build/build.ps1`。不需要 Node、npm、Visual Studio 或额外安装 .NET SDK。脚本使用系统自带 C# 编译器，输出图形 EXE 和命令行验证工具。
 
 `build/fetch-deps.ps1` 下载固定版本的原版 Prism、Java 17 / 21 以及对应源码；`build/assemble.ps1` 组装运行目录。
 
-发行压缩包由 `build/package.py` 生成，使用 Python 3 标准库。归档只选择必要文件，不纳入构建缓存、测试账号、测试日志或私人凭证。
+发行压缩包由 `build/package-friends.py` 生成，使用 Python 3 标准库。归档只选择必要文件，不纳入构建缓存、测试账号、测试日志或私人凭证。
 
 ## 实现
 

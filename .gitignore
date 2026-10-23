@@ -7,5 +7,7 @@ build/*.dll
 build/*.json
 build/*.txt
 build/*.log
+build/*.ico
+build/PortableVersion.cs
 *.user
 .vs/

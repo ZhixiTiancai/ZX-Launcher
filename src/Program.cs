@@ -14,11 +14,12 @@ using Microsoft.Win32;
 
 [assembly:System.Reflection.AssemblyTitle("智熄的启动器")]
 [assembly:System.Reflection.AssemblyProduct("智熄的启动器")]
-[assembly:System.Reflection.AssemblyVersion("0.2.7.0")]
+[assembly:System.Reflection.AssemblyVersion("0.2.8.0")]
 namespace FoolLauncher {
  public static class Program {
   [STAThread] public static int Main(string[] args) {
-   string root=AppDomain.CurrentDomain.BaseDirectory;
+   string program=AppDomain.CurrentDomain.BaseDirectory;
+   string root=File.Exists(Path.Combine(program,"layout-v2"))?Directory.GetParent(program.TrimEnd(Path.DirectorySeparatorChar)).FullName:program;
    try {
     if(args.Length>0)return Command(args).GetAwaiter().GetResult();
     bool acquired;using(var mutex=new Mutex(true,"FoolLauncher-"+root.ToLowerInvariant().GetHashCode(),out acquired)) {
@@ -32,6 +33,7 @@ namespace FoolLauncher {
   static async Task<int> Command(string[] args) {
    if(args[0]=="--self-test")return SelfTests.Run();
    if(args[0]=="--verify-update"&&args.Length==2){string stage=Path.Combine(Path.GetTempPath(),"Zhixi-verify-"+Guid.NewGuid().ToString("N"));var update=LauncherUpdateCore.Stage(args[1],stage,CancellationToken.None);Console.WriteLine("VERIFIED_UPDATE="+update.Version+" FILES="+update.Files.Length);return 0;}
+   if(args[0]=="--apply-update"&&args.Length==3){if(PortableLayout.Running(args[1]))throw new IOException("请先退出这个目录中的启动器、Prism 和游戏。");string stage=Path.Combine(Path.GetTempPath(),"Zhixi-install-"+Guid.NewGuid().ToString("N"));var update=LauncherUpdateCore.Stage(args[2],stage,CancellationToken.None);Console.WriteLine("UPDATE_BACKUP="+LauncherUpdateCore.Apply(update,args[1]));return 0;}
    if(args.Length<3)throw new ArgumentException("用法：--prepare <root> <pack>、--repair <root> <instance-id> 或 --metadata <root> <instance-id>");
    if(args[0]=="--import-only"){var imported=await new PackService(args[1]).Import(args[2],new Progress<Update>(p=>Console.WriteLine(p.Message)),CancellationToken.None);Console.WriteLine("IMPORTED="+imported.Id+" FILES="+imported.FileCount);return 0;}
    var service=new PackService(args[1]);var progress=new Progress<Update>(p=>Console.WriteLine(p.Done+"/"+p.Total+" "+p.Message));Instance i;
@@ -59,7 +61,9 @@ namespace FoolLauncher {
    Accounts=new AccountStore(Service.Data,EngineRunning);
    // Fail early on a read-only extraction location.
    File.WriteAllText(Path.Combine(Service.Data,".write-test"),"");File.Delete(Path.Combine(Service.Data,".write-test"));
-   using(var stream=File.OpenRead(Path.Combine(root,"App.xaml")))Window=(Window)XamlReader.Load(stream);
+   string program=File.Exists(Path.Combine(root,"launcher","layout-v2"))?Path.Combine(root,"launcher"):root;
+   using(var stream=File.OpenRead(Path.Combine(program,"App.xaml")))Window=(Window)XamlReader.Load(stream);
+   using(var stream=typeof(Program).Assembly.GetManifestResourceStream("FoolLauncher.Logo.png")){var bitmap=new System.Windows.Media.Imaging.BitmapImage();bitmap.BeginInit();bitmap.CacheOption=System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;bitmap.StreamSource=stream;bitmap.EndInit();bitmap.Freeze();Window.Icon=bitmap;}
    PackList=Get<ListBox>("PackList");PackName=Get<TextBlock>("PackName");PackInfo=Get<TextBlock>("PackInfo");AccountText=Get<TextBlock>("AccountText");LogBox=Get<TextBox>("LogBox");MemoryBox=Get<ComboBox>("MemoryBox");TaskProgress=Get<ProgressBar>("TaskProgress");
    ImportButton=Get<Button>("ImportButton");LaunchButton=Get<Button>("LaunchButton");RepairButton=Get<Button>("RepairButton");FolderButton=Get<Button>("FolderButton");EngineButton=Get<Button>("EngineButton");CancelButton=Get<Button>("CancelButton");LocalButton=Get<Button>("LocalButton");MissingButton=Get<Button>("MissingButton");
    AccountButton=Get<Button>("AccountButton");AccountButton.Click+=(s,e)=>Try(()=>new AccountWindow(Window,Accounts,EngineRunning,RefreshAccount).Show());
@@ -120,7 +124,7 @@ namespace FoolLauncher {
     var picker=new OpenFileDialog{Multiselect=true,Filter="模组和资源文件|*.jar;*.zip|所有文件|*.*",Title="选择手动下载的文件（会校验哈希）"};if(picker.ShowDialog(Window)!=true)return;
     await Run(async p=>{int n=await Service.AddLocalFiles(i,picker.FileNames,TaskCancel.Token);Log("已匹配并补入 "+n+" 个文件。点击校验 / 补全文件检查剩余内容。");});
    };
-   Get<Button>("HelpButton").Click+=(s,e)=>Try(()=>OpenPath(Path.Combine(root,"使用说明.txt")));
+   Get<Button>("HelpButton").Click+=(s,e)=>Try(()=>OpenPath(Path.Combine(program,"使用说明.txt")));
    Window.Closing+=(s,e)=>{if(Busy){if(MessageBox.Show(Window,UiText.T("当前任务尚未完成。停止并退出？已完成文件会保留。"),UiText.T("退出启动器"),MessageBoxButton.YesNo)!=MessageBoxResult.Yes){e.Cancel=true;return;}TaskCancel.Cancel();}};
    DeletePackButton=Get<Button>("DeletePackButton");DeletePackButton.Click+=async(s,e)=>{
     var instance=Current;if(instance==null||Busy)return;
@@ -190,25 +194,25 @@ namespace FoolLauncher {
   void Log(string message) {
    if(message==LastMessage)return;LastMessage=message;string line=DateTime.Now.ToString("HH:mm:ss")+"  "+message+Environment.NewLine;
    LogBox.AppendText(line);if(LogBox.Text.Length>50000)LogBox.Text=LogBox.Text.Substring(LogBox.Text.Length-30000);LogBox.ScrollToEnd();
-   try{Directory.CreateDirectory(Path.Combine(Service.Root,"logs"));File.AppendAllText(Path.Combine(Service.Root,"logs","launcher.log"),line,new UTF8Encoding(false));}catch{}
+   try{string logs=Path.Combine(Service.Root,"launcher","logs");Directory.CreateDirectory(logs);File.AppendAllText(Path.Combine(logs,"launcher.log"),line,new UTF8Encoding(false));}catch{}
   }
   bool EngineRunning() {
    foreach(var p in Process.GetProcessesByName("prismlauncher")) {
-    try{if(String.Equals(p.MainModule.FileName,Path.Combine(Service.Root,"engine","prismlauncher.exe"),StringComparison.OrdinalIgnoreCase))return true;}catch{return true;}finally{p.Dispose();}
+    try{if(String.Equals(p.MainModule.FileName,Path.Combine(Service.Root,"launcher","engine","prismlauncher.exe"),StringComparison.OrdinalIgnoreCase))return true;}catch{return true;}finally{p.Dispose();}
    }
    return false;
   }
   void ConfigureEngine() {
-   string exe=Path.Combine(Service.Root,"engine","prismlauncher.exe");if(!File.Exists(exe))throw new FileNotFoundException("缺少启动引擎。请完整解压整个压缩包。 ");
+   string exe=Path.Combine(Service.Root,"launcher","engine","prismlauncher.exe");if(!File.Exists(exe))throw new FileNotFoundException("缺少启动引擎。请完整解压整个压缩包。 ");
    var java=JavaRuntime.Find(Service.Root,new[]{17,21});if(java==null)throw new FileNotFoundException("缺少 Java 运行时，请完整解压。 ");
    string file=Path.Combine(Service.Data,"prismlauncher.cfg");
-   var settings=new Dictionary<string,string>{{"JavaPath",java.Path.Replace('\\','/')},{"JavaVersion",java.Version},{"JavaArchitecture","64"},{"MinMemAlloc","1024"},{"MaxMemAlloc",Memory.ToString()},{"Language",UiText.Language=="en-US"?"en_US":"zh"},{"InstanceDir","instances"},{"ShowConsole","false"},{"ShowConsoleOnError","true"},{"IgnoreJavaWizard","true"},{"UserAskedAboutAutomaticJavaDownload","true"}};
+   var settings=new Dictionary<string,string>{{"JavaPath",java.Path.Replace('\\','/')},{"JavaVersion",java.Version},{"JavaArchitecture","64"},{"MinMemAlloc","1024"},{"MaxMemAlloc",Memory.ToString()},{"Language",UiText.Language=="en-US"?"en_US":"zh"},{"InstanceDir",Service.InstanceRoot.Replace('\\','/')},{"ShowConsole","false"},{"ShowConsoleOnError","true"},{"IgnoreJavaWizard","true"},{"UserAskedAboutAutomaticJavaDownload","true"}};
    string selectedClient=Accounts.LaunchClientId();if(!String.IsNullOrWhiteSpace(selectedClient))settings["MSAClientIDOverride"]=selectedClient;
    IniConfig.UpdateGeneral(file,settings);
   }
   static string Quote(string s) {return "\""+s.Replace("\"","")+"\"";}
   void OpenEngine(string id,string accountArguments="") {
-   var info=new ProcessStartInfo(Path.Combine(Service.Root,"engine","prismlauncher.exe"),"--dir "+Quote(Service.Data)+(id==null?"":" --launch "+Quote(id)+accountArguments)){WorkingDirectory=Service.Root,UseShellExecute=false};
+   var info=new ProcessStartInfo(Path.Combine(Service.Root,"launcher","engine","prismlauncher.exe"),"--dir "+Quote(Service.Data)+(id==null?"":" --launch "+Quote(id)+accountArguments)){WorkingDirectory=Service.Root,UseShellExecute=false};
    Process.Start(info);
   }
   void RefreshAccount() {

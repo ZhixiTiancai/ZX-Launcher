@@ -53,7 +53,8 @@ namespace FoolLauncher {
   }
   public static void ValidateRoot(string root) {
    root=Path.GetFullPath(root);NoLinks(root);
-   if(!File.Exists(Path.Combine(root,"engine","prismlauncher.exe"))||(!File.Exists(Path.Combine(root,"智熄的启动器.exe"))&&!File.Exists(Path.Combine(root,"愚者启动器.exe"))))throw new IOException("请选择原来的启动器文件夹（应包含启动器 EXE 和 engine 文件夹）。");
+   string engine=PortableLayout.IsModern(root)?Path.Combine(PortableLayout.ProgramFolder(root),"engine","prismlauncher.exe"):Path.Combine(root,"engine","prismlauncher.exe");
+   if(!File.Exists(engine)||(!File.Exists(Path.Combine(root,"智熄的启动器.exe"))&&!File.Exists(Path.Combine(root,"愚者启动器.exe"))))throw new IOException("请选择原来的启动器文件夹（包含启动器 EXE 和 minecraft 文件夹；也兼容旧版目录）。");
   }
   public static VerifiedUpdate Stage(string package,string output,CancellationToken cancel){return Stage(package,output,cancel,UpdateTrust.PublicKey);}
   internal static VerifiedUpdate Stage(string package,string output,CancellationToken cancel,string publicKey) {
@@ -81,25 +82,25 @@ namespace FoolLauncher {
   }
   public static void CopyBounded(Stream source,Stream target,long max,CancellationToken cancel){byte[] buffer=new byte[65536];long count=0;int n;while((n=source.Read(buffer,0,buffer.Length))>0){cancel.ThrowIfCancellationRequested();count+=n;if(count>max)throw new InvalidDataException("Download exceeds expected size.");target.Write(buffer,0,n);}}
   public static string Apply(VerifiedUpdate update,string root,Action<int> afterWrite=null) {
-   ValidateRoot(root);root=Path.GetFullPath(root);string lockFile=Path.Combine(root,".launcher-update.lock");NoLinks(lockFile);
+   ValidateRoot(root);root=Path.GetFullPath(root);string lockFile=Path.Combine(PortableLayout.StateFolder(root),".launcher-update.lock");NoLinks(lockFile);
    using(var held=new FileStream(lockFile,FileMode.OpenOrCreate,FileAccess.ReadWrite,FileShare.None))return ApplyLocked(update,root,afterWrite);
   }
   static string ApplyLocked(VerifiedUpdate update,string root,Action<int> afterWrite) {
    NoLinks(update.Folder);
-   string backup=Path.Combine(root,"updates-backup",DateTime.Now.ToString("yyyyMMdd-HHmmss")+"-"+Guid.NewGuid().ToString("N").Substring(0,6));NoLinks(backup);
+   string backup=Path.Combine(PortableLayout.StateFolder(root),"updates-backup",DateTime.Now.ToString("yyyyMMdd-HHmmss")+"-"+Guid.NewGuid().ToString("N").Substring(0,6));NoLinks(backup);
    // Recheck every staged hash and target lock before changing any installed file.
-   foreach(var file in update.Files){if(!Allowed(file.Name))throw new InvalidDataException("Protected update path.");string source=Path.Combine(update.Folder,file.Name),target=Path.Combine(root,file.Name);NoLinks(source);NoLinks(target);if(new FileInfo(source).Length!=file.Size||HashFile(source)!=file.Sha256)throw new InvalidDataException("Staged update changed.");if(File.Exists(target))using(var held=File.Open(target,FileMode.Open,FileAccess.ReadWrite,FileShare.None)){} }
+   foreach(var file in update.Files){if(!Allowed(file.Name))throw new InvalidDataException("Protected update path.");string source=Path.Combine(update.Folder,file.Name),target=PortableLayout.UpdateTarget(root,file.Name);NoLinks(source);NoLinks(target);if(new FileInfo(source).Length!=file.Size||HashFile(source)!=file.Sha256)throw new InvalidDataException("Staged update changed.");if(File.Exists(target))using(var held=File.Open(target,FileMode.Open,FileAccess.ReadWrite,FileShare.None)){} }
    Directory.CreateDirectory(backup);var written=new List<string>();var newFiles=new HashSet<string>(StringComparer.OrdinalIgnoreCase);
    try {
     foreach(var file in update.Files) {
-     string target=Path.Combine(root,file.Name),saved=Path.Combine(backup,file.Name),temp=target+".update-"+Guid.NewGuid().ToString("N");
+     string target=PortableLayout.UpdateTarget(root,file.Name),saved=Path.Combine(backup,file.Name),temp=target+".update-"+Guid.NewGuid().ToString("N");
      NoLinks(target);Directory.CreateDirectory(Path.GetDirectoryName(target));Directory.CreateDirectory(Path.GetDirectoryName(saved));
      try {File.Copy(Path.Combine(update.Folder,file.Name),temp);if(new FileInfo(temp).Length!=file.Size||HashFile(temp)!=file.Sha256)throw new InvalidDataException("Update changed while copying.");if(File.Exists(target))File.Replace(temp,target,saved);else{File.Move(temp,target);newFiles.Add(file.Name);}written.Add(file.Name);if(afterWrite!=null)afterWrite(written.Count);}
      finally{if(File.Exists(temp))File.Delete(temp);}
     }
     File.WriteAllText(Path.Combine(backup,"update-result.json"),Serializer().Serialize(new{Version=update.Version,Completed=true,Files=written}),new UTF8Encoding(false));return backup;
    }catch(Exception failure) {
-    var rollback=new List<string>();foreach(string name in Enumerable.Reverse(written))try{string target=Path.Combine(root,name),saved=Path.Combine(backup,name);if(newFiles.Contains(name))File.Delete(target);else File.Copy(saved,target,true);}catch{rollback.Add(name);}
+    var rollback=new List<string>();foreach(string name in Enumerable.Reverse(written))try{string target=PortableLayout.UpdateTarget(root,name),saved=Path.Combine(backup,name);if(newFiles.Contains(name))File.Delete(target);else File.Copy(saved,target,true);}catch{rollback.Add(name);}
     File.WriteAllText(Path.Combine(backup,"update-result.json"),Serializer().Serialize(new{Version=update.Version,Completed=false,RollbackFailed=rollback}),new UTF8Encoding(false));
     throw new IOException(rollback.Count==0?"更新未完成，已恢复原来的程序文件。用户数据未改动。":"更新未完成，请从备份恢复程序文件："+backup,failure);
    }

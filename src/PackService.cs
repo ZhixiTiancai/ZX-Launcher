@@ -59,7 +59,7 @@ namespace FoolLauncher {
  public sealed class PackService {
   public readonly string Root;
   public string Data {get{return Path.Combine(Root,"data");}}
-  public string InstanceRoot {get{return Path.Combine(Data,"instances");}}
+  public string InstanceRoot {get{return Path.Combine(Root,"versions");}}
   static readonly HttpClient Http=CreateHttp();
   static HttpClient CreateHttp() {
    ServicePointManager.SecurityProtocol=SecurityProtocolType.Tls12;
@@ -69,7 +69,19 @@ namespace FoolLauncher {
    client.DefaultRequestHeaders.UserAgent.ParseAdd("FoolLauncher/0.1");
    return client;
   }
-  public PackService(string root) {Root=Path.GetFullPath(root);Directory.CreateDirectory(InstanceRoot);}
+  public PackService(string root) {
+   Root=Path.GetFullPath(root);Directory.CreateDirectory(Data);Directory.CreateDirectory(InstanceRoot);
+   // Give migrated timestamp-only instance folders a recognizable pack name.
+   foreach(string old in Directory.GetDirectories(InstanceRoot).Where(p=>Path.GetFileName(p).StartsWith("pack-",StringComparison.Ordinal))) {
+    Instance instance;try{instance=Json.Read<Instance>(Path.Combine(old,"launcher-instance.json"));}catch{continue;}
+    string id=Path.GetFileName(old),name=ReadableId(instance.Name,id.Substring(Math.Max(0,id.Length-6))),target=SafePath(InstanceRoot,name);
+    if(Directory.Exists(target))continue;
+    string oldIcon=SafePath(Path.Combine(Data,"instance-icons"),id+".png"),icon=SafePath(Path.Combine(Data,"instance-icons"),name+".png");
+    if(File.Exists(oldIcon)&&!File.Exists(icon))File.Copy(oldIcon,icon);
+    Directory.Move(old,target);
+   }
+  }
+  static string ReadableId(string name,string suffix){string safe=Regex.Replace(name??"",@"[\x00-\x1f<>:""/\\|?*]","_").Trim().TrimEnd('.');if(safe.Length>48)safe=safe.Substring(0,48);if(safe.Length==0)safe="整合包";if(Regex.IsMatch(safe,@"^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(\.|$)",RegexOptions.IgnoreCase))safe="_"+safe;return safe+"-"+suffix;}
   public string Folder(Instance i) {return SafePath(InstanceRoot,i.Id);}
   public string Game(Instance i) {return Path.Combine(Folder(i),"minecraft");}
   public static string SafePath(string root,string relative) {
@@ -144,7 +156,7 @@ namespace FoolLauncher {
       progress.Report(new Update("已识别 CurseForge 整合包，正在通过 CurseTools 公共代理解析文件清单…"));
       pack=Validate(new CurseForgePack(Data).Resolve(manifest,progress,ct).GetAwaiter().GetResult());
      }
-     string id="pack-"+DateTime.UtcNow.ToString("yyyyMMdd-HHmmss")+"-"+Guid.NewGuid().ToString("N").Substring(0,6);
+     string id=ReadableId(pack.name,Guid.NewGuid().ToString("N").Substring(0,6));
      var i=new Instance{Id=id,Name=pack.name??"未命名整合包",Version=pack.versionId??"",Minecraft=pack.dependencies["minecraft"],FileCount=pack.files.Count(ClientFile)};
      i.Loader=String.Join(" / ",pack.dependencies.Where(d=>d.Key!="minecraft").Select(d=>d.Key+" "+d.Value));
      string folder=Folder(i), game=Game(i);Directory.CreateDirectory(game);

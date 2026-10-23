@@ -83,7 +83,8 @@ namespace FoolLauncher {
     ct.ThrowIfCancellationRequested();string target=System.IO.Path.GetFullPath(destination),game=System.IO.Path.GetFullPath(Service.Game(instance)).TrimEnd('\\','/');
     if(!instance.Ready)throw new IOException("整合包尚未补全，请先执行校验 / 补全文件再导出。");
     string dataPrefix=System.IO.Path.GetFullPath(Service.Data).TrimEnd('\\','/')+System.IO.Path.DirectorySeparatorChar;
-    if(target.StartsWith(dataPrefix,StringComparison.OrdinalIgnoreCase))throw new IOException("请把导出的整合包保存到 data 文件夹以外，例如启动器的 exports 文件夹。");
+    string versionsPrefix=System.IO.Path.GetFullPath(Service.InstanceRoot).TrimEnd('\\','/')+System.IO.Path.DirectorySeparatorChar;
+    if(target.StartsWith(dataPrefix,StringComparison.OrdinalIgnoreCase)||target.StartsWith(versionsPrefix,StringComparison.OrdinalIgnoreCase))throw new IOException("请把导出的整合包保存到 data、versions 文件夹以外，例如 minecraft 的 exports 文件夹。");
     if(!new[]{".zip",".mrpack"}.Contains(System.IO.Path.GetExtension(target).ToLowerInvariant()))throw new IOException("请使用 .zip 或 .mrpack 扩展名。");
     var original=Service.Index(instance);var index=new PackIndex{game="minecraft",formatVersion=1,name=instance.Name,versionId=instance.Version,summary=original.summary,dependencies=Dependencies(instance),files=new PackFile[0]};Service.Validate(index);
     progress.Report(new Update("正在整理整合包文件…"));int skipped;var files=Collect(game,ct,out skipped);

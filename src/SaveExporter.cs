@@ -24,7 +24,8 @@ namespace FoolLauncher {
    return Task.Run(()=>{
     ct.ThrowIfCancellationRequested();string saves=Path.GetFullPath(Saves(instance)).TrimEnd('\\','/'),target=Path.GetFullPath(destination);
     string dataPrefix=Path.GetFullPath(Service.Data).TrimEnd('\\','/')+Path.DirectorySeparatorChar;
-    if(target.StartsWith(dataPrefix,StringComparison.OrdinalIgnoreCase))throw new IOException("请将存档 ZIP 保存到 data 文件夹以外，例如启动器的 exports 文件夹。");
+    string versionsPrefix=Path.GetFullPath(Service.InstanceRoot).TrimEnd('\\','/')+Path.DirectorySeparatorChar;
+    if(target.StartsWith(dataPrefix,StringComparison.OrdinalIgnoreCase)||target.StartsWith(versionsPrefix,StringComparison.OrdinalIgnoreCase))throw new IOException("请将存档 ZIP 保存到 data、versions 文件夹以外，例如 minecraft 的 exports 文件夹。");
     if(!Path.GetExtension(target).Equals(".zip",StringComparison.OrdinalIgnoreCase))throw new IOException("请使用 .zip 扩展名。");
     if(!Directory.Exists(saves)||!Directory.EnumerateDirectories(saves).Any())throw new IOException("这个整合包还没有存档。请先在游戏中创建世界并保存退出。");
     CheckFolder(Service.Game(instance));CheckFolder(saves);

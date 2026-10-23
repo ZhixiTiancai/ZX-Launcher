@@ -12,7 +12,7 @@ using Microsoft.Win32;
 using FoolLauncher;
 
 [assembly:AssemblyTitle("智熄的启动器更新器")]
-[assembly:AssemblyVersion("0.2.7.0")]
+[assembly:AssemblyVersion("0.2.8.0")]
 internal static class UpdaterProgram {
  [STAThread] static int Main(string[] args) {
   var app=new Application();var ui=(Window)XamlReader.Parse(@"
@@ -71,5 +71,5 @@ internal static class UpdaterProgram {
   app.Run(ui);return result;
  }
  static string Quote(string s){if(s.Contains('"'))throw new ArgumentException("Invalid path.");return "\""+s.TrimEnd('\\')+"\"";}
- static bool LauncherRunning(string root) {foreach(var process in Process.GetProcesses())using(process)try{string path=process.MainModule.FileName;if(new[]{"智熄的启动器.exe","愚者启动器.exe"}.Any(name=>path.Equals(Path.Combine(root,name),StringComparison.OrdinalIgnoreCase)))return true;}catch{}return false;}
+ static bool LauncherRunning(string root) {return PortableLayout.Running(root);}
 }
