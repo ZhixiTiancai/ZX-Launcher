@@ -25,10 +25,7 @@ namespace FoolLauncher {
   public CurseForgePack(string data):this(data,Get){}
   internal CurseForgePack(string data,Func<string,CancellationToken,Task<string>> fetch){Cache=Path.Combine(data,"metadata","curseforge");Fetch=fetch;}
   static async Task<string> Get(string path,CancellationToken ct) {
-   using(var response=await Http.GetAsync("https://api.curse.tools/v1/cf/"+path,ct).ConfigureAwait(false)) {
-    if(!response.IsSuccessStatusCode)throw new IOException("CurseForge 文件信息查询失败（CurseTools 代理 HTTP "+(int)response.StatusCode+"），请稍后重试。");
-    string body=await response.Content.ReadAsStringAsync().ConfigureAwait(false);ct.ThrowIfCancellationRequested();if(body.Length>4*1024*1024)throw new InvalidDataException("CurseForge 文件信息过大。");return body;
-   }
+   return await CatalogNetwork.Curse(path,ct).ConfigureAwait(false);
   }
   public static string OverridePrefix(CurseManifest manifest) {
    string relative=(manifest.overrides??"overrides").Replace('\\','/').TrimEnd('/');PackService.SafePath(Path.GetTempPath(),relative);return relative+"/";

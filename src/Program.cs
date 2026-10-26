@@ -14,7 +14,7 @@ using Microsoft.Win32;
 
 [assembly:System.Reflection.AssemblyTitle("智熄的启动器")]
 [assembly:System.Reflection.AssemblyProduct("智熄的启动器")]
-[assembly:System.Reflection.AssemblyVersion("0.2.9.0")]
+[assembly:System.Reflection.AssemblyVersion("0.3.0.0")]
 namespace FoolLauncher {
  public static class Program {
   [STAThread] public static int Main(string[] args) {
@@ -32,6 +32,7 @@ namespace FoolLauncher {
   }
   static async Task<int> Command(string[] args) {
    if(args[0]=="--self-test")return SelfTests.Run();
+   if(args[0]=="--catalog-live"&&args.Length==2)return await CatalogTests.Live(args[1]);
    if(args[0]=="--verify-update"&&args.Length==2){string stage=Path.Combine(Path.GetTempPath(),"Zhixi-verify-"+Guid.NewGuid().ToString("N"));var update=LauncherUpdateCore.Stage(args[1],stage,CancellationToken.None);Console.WriteLine("VERIFIED_UPDATE="+update.Version+" FILES="+update.Files.Length);return 0;}
    if(args[0]=="--apply-update"&&args.Length==3){if(PortableLayout.Running(args[1]))throw new IOException("请先退出这个目录中的启动器、Prism 和游戏。");string stage=Path.Combine(Path.GetTempPath(),"Zhixi-install-"+Guid.NewGuid().ToString("N"));var update=LauncherUpdateCore.Stage(args[2],stage,CancellationToken.None);Console.WriteLine("UPDATE_BACKUP="+LauncherUpdateCore.Apply(update,args[1]));return 0;}
    if(args.Length<3)throw new ArgumentException("用法：--prepare <root> <pack>、--repair <root> <instance-id> 或 --metadata <root> <instance-id>");
@@ -53,7 +54,7 @@ namespace FoolLauncher {
   public Window Window;readonly PackService Service;readonly PackIcons Icons;readonly AccountStore Accounts;Button AccountButton;
   ListBox PackList;TextBlock PackName,PackInfo,AccountText,RenameError;TextBox LogBox,RenameInput;ComboBox MemoryBox;ProgressBar TaskProgress;
   Button ImportButton,LaunchButton,RepairButton,FolderButton,EngineButton,CancelButton,LocalButton,MissingButton,RenameButton,RenameSaveButton,RenameCancelButton;
-  CancellationTokenSource TaskCancel;bool Busy;DateTime LastProgress=DateTime.MinValue;string LastMessage="";bool MemoryLoading;
+  CancellationTokenSource TaskCancel;bool Busy,CloseAfterTask;DateTime LastProgress=DateTime.MinValue;string LastMessage="";bool MemoryLoading;
   Button IconButton,IconLocalButton,IconDownloadButton,IconResetButton,IconCloseButton,ExportButton,ModsButton,SaveExportButton;Image PackIcon;Border IconEditor;TextBox IconUrl;FrameworkElement PackActions;
   public LauncherWindow(string root) {
    Service=new PackService(root);
@@ -125,14 +126,14 @@ namespace FoolLauncher {
     await Run(async p=>{int n=await Service.AddLocalFiles(i,picker.FileNames,TaskCancel.Token);Log("已匹配并补入 "+n+" 个文件。点击校验 / 补全文件检查剩余内容。");});
    };
    Get<Button>("HelpButton").Click+=(s,e)=>Try(()=>OpenPath(Path.Combine(program,"使用说明.txt")));
-   Window.Closing+=(s,e)=>{if(Busy){if(MessageBox.Show(Window,UiText.T("当前任务尚未完成。停止并退出？已完成文件会保留。"),UiText.T("退出启动器"),MessageBoxButton.YesNo)!=MessageBoxResult.Yes){e.Cancel=true;return;}TaskCancel.Cancel();}};
+   Window.Closing+=(s,e)=>{if(Busy){e.Cancel=true;if(CloseAfterTask)return;if(MessageBox.Show(Window,UiText.T("当前任务尚未完成。停止并退出？已完成文件会保留。"),UiText.T("退出启动器"),MessageBoxButton.YesNo)!=MessageBoxResult.Yes)return;if(!Busy||TaskCancel==null){e.Cancel=false;return;}CloseAfterTask=true;TaskCancel.Cancel();Log(UiText.T("正在停止任务，完成文件清理后退出。"));}};
    DeletePackButton=Get<Button>("DeletePackButton");DeletePackButton.Click+=async(s,e)=>{
     var instance=Current;if(instance==null||Busy)return;
     if(EngineRunning()){Log(UiText.T("请先退出 Prism 和游戏，再删除整合包。"));return;}
     if(!DeleteConfirmation.Show(Window,UiText.T("删除整合包"),instance.Name,UiText.T("此整合包中的模组、配置和全部存档都会一起移入回收站。"),UiText.T("需要恢复时，可在 Windows 回收站中还原此整合包文件夹。")))return;
     await Run(async progress=>{await Task.Run(()=>PackRemoval.Recycle(Service,instance));Refresh(null);Log(UiText.T("整合包已移入 Windows 回收站。"));});
    };
-   Pages=new LauncherPages(Window,root,()=>{ShowPack();RefreshAccount();},Accounts,action=>Run(async p=>await action(TaskCancel.Token)),()=>Busy);
+   Pages=new LauncherPages(Window,root,()=>{ShowPack();RefreshAccount();},Accounts,action=>Run(async p=>await action(TaskCancel.Token)),()=>Busy,Service,()=>Current,job=>Run(p=>job(p,TaskCancel.Token)),i=>Refresh(i.Id),EngineRunning,Log);
    new LauncherUpdateUi(Window,root,()=>!Busy,Log,()=>Pages.Navigate("settings"));
    Refresh(null);Log(UiText.T("启动器已就绪。先校验整合包文件，再完成正版登录，即可尝试启动。 "));
    var timer=new DispatcherTimer{Interval=TimeSpan.FromSeconds(5)};timer.Tick+=(s,e)=>RefreshAccount();timer.Start();
@@ -188,7 +189,7 @@ namespace FoolLauncher {
     if((DateTime.UtcNow-LastProgress).TotalMilliseconds>300||u.Done==u.Total&&u.Total>0){Log(u.Message);LastProgress=DateTime.UtcNow;}
    });
    try{await action(progress);}catch(OperationCanceledException){Log(UiText.T("任务已停止。再次补全时会跳过已校验完成的文件。"));}catch(Exception ex){Log("操作未完成："+ex.Message);MessageBox.Show(Window,ex.Message,UiText.T("操作未完成"));}
-   finally{Busy=false;TaskCancel.Dispose();TaskCancel=null;TaskProgress.IsIndeterminate=false;SetEnabled();ShowPack();}
+   finally{Busy=false;TaskCancel.Dispose();TaskCancel=null;TaskProgress.IsIndeterminate=false;SetEnabled();ShowPack();if(CloseAfterTask){var pendingClose=Window.Dispatcher.BeginInvoke(new Action(()=>Window.Close()));}}
   }
   void Try(Action action){try{action();}catch(Exception ex){Log(ex.Message);MessageBox.Show(Window,ex.Message,UiText.T("操作未完成"));}}
   void Log(string message) {

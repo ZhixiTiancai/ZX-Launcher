@@ -263,7 +263,7 @@ namespace FoolLauncher {
   public async Task<int> Repair(Instance instance,IProgress<Update> progress,CancellationToken ct) {
    var pack=Index(instance);var files=pack.files.Where(ClientFile).ToArray();var failures=new List<MissingFile>();
    var gate=new SemaphoreSlim(6);int done=0;
-   instance.Ready=false;Json.Write(Path.Combine(Folder(instance),"launcher-instance.json"),instance);
+   instance.FileCount=files.Length;instance.Ready=false;Json.Write(Path.Combine(Folder(instance),"launcher-instance.json"),instance);
    await Task.WhenAll(files.Select(async file=>{
     await gate.WaitAsync(ct).ConfigureAwait(false);
     try {
