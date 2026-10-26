@@ -14,7 +14,7 @@ using Microsoft.Win32;
 
 [assembly:System.Reflection.AssemblyTitle("智熄的启动器")]
 [assembly:System.Reflection.AssemblyProduct("智熄的启动器")]
-[assembly:System.Reflection.AssemblyVersion("0.3.0.0")]
+[assembly:System.Reflection.AssemblyVersion("0.3.1.0")]
 namespace FoolLauncher {
  public static class Program {
   [STAThread] public static int Main(string[] args) {
@@ -32,6 +32,7 @@ namespace FoolLauncher {
   }
   static async Task<int> Command(string[] args) {
    if(args[0]=="--self-test")return SelfTests.Run();
+   if(args[0]=="--repair-shortcut-icons"&&args.Length==2){var result=ShortcutIcons.Refresh(args[1]);Console.WriteLine("SHORTCUT_ICONS_UPDATED="+result.Updated+" ICON="+result.Icon);return 0;}
    if(args[0]=="--catalog-live"&&args.Length==2)return await CatalogTests.Live(args[1]);
    if(args[0]=="--verify-update"&&args.Length==2){string stage=Path.Combine(Path.GetTempPath(),"Zhixi-verify-"+Guid.NewGuid().ToString("N"));var update=LauncherUpdateCore.Stage(args[1],stage,CancellationToken.None);Console.WriteLine("VERIFIED_UPDATE="+update.Version+" FILES="+update.Files.Length);return 0;}
    if(args[0]=="--apply-update"&&args.Length==3){if(PortableLayout.Running(args[1]))throw new IOException("请先退出这个目录中的启动器、Prism 和游戏。");string stage=Path.Combine(Path.GetTempPath(),"Zhixi-install-"+Guid.NewGuid().ToString("N"));var update=LauncherUpdateCore.Stage(args[2],stage,CancellationToken.None);Console.WriteLine("UPDATE_BACKUP="+LauncherUpdateCore.Apply(update,args[1]));return 0;}

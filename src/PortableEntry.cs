@@ -13,6 +13,7 @@ namespace FoolLauncher {
     bool acquired;using(var gate=new Mutex(true,"ZhixiLayout-"+root.ToLowerInvariant().GetHashCode(),out acquired)){
      if(!acquired)return 0;
      PortableLayout.Prepare(root);
+     try{ShortcutIcons.Refresh(root);}catch{/* Icon maintenance must not block launching. */}
      if(args.Length==1&&args[0]=="--migrate-only")return 0;
      if(PortableLayout.UiRunning(root))return 0;
      string app=Path.Combine(PortableLayout.ProgramFolder(root),"LauncherApp.exe");

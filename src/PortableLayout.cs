@@ -27,6 +27,7 @@ namespace FoolLauncher {
    foreach(string source in Directory.EnumerateFileSystemEntries(root)){
     string name=Path.GetFileName(source);if(name.Equals("minecraft",StringComparison.OrdinalIgnoreCase)||name.Equals(EntryName,StringComparison.OrdinalIgnoreCase))continue;
     string target=new[]{"data","runtime","exports"}.Contains(name,StringComparer.OrdinalIgnoreCase)?Path.Combine(content,name):Path.Combine(program,name);
+    if(File.Exists(source)&&Path.GetExtension(name).Equals(".lnk",StringComparison.OrdinalIgnoreCase)){target=Path.Combine(program,"shortcuts",name);if(File.Exists(target)||Directory.Exists(target))target=Path.Combine(program,"shortcuts",Guid.NewGuid().ToString("N").Substring(0,8)+"-"+name);}
     if(name=="愚者启动器.exe")target=Path.Combine(program,"legacy",name);
     Check(root,source);Check(root,target);
     if(File.Exists(target)||Directory.Exists(target)){

@@ -1,4 +1,4 @@
-﻿智熄的启动器 0.1.6
+智熄的启动器 0.1.6
 
 Custom interface and importer source: source/src/ . Distributed under MIT (see source/LICENSE).
 
@@ -49,3 +49,9 @@ Includes Microsoft.Web.WebView2.Core.dll, Microsoft.Web.WebView2.Wpf.dll and x64
 The original SDK license is included in WebView2-LICENSE.txt.
 Microsoft Edge WebView2 Runtime is a separately installed Microsoft component.
 NameMC website content and downloaded skins remain subject to their respective authors and site terms.
+
+Mod display-name lookup:
+Optional runtime Chinese-name data: PCL WikiEntries, maintained by 龙腾猫跃 and based on MC百科 entries.
+Source: https://github.com/Meloong-Git/PCL/blob/main/PCLCS/Resource/WikiEntries.txt
+Upstream notice: https://github.com/Meloong-Git/PCL/blob/main/LICENCE
+The full upstream table and PCL code are not bundled in this distribution. The independent name-only reader downloads the public table on demand and caches it locally. ZX Launcher is not affiliated with or endorsed by PCL.

@@ -1,4 +1,4 @@
-﻿# 智熄的启动器 0.3.0
+﻿# 智熄的启动器 0.3.1
 
 [下载最新版](https://github.com/ZhixiTiancai/ZX-Launcher/releases/latest) · [发布与自动更新说明](发布更新说明.md)
 
@@ -203,3 +203,10 @@ CurseForge 通过 CurseTools 公共代理查询，失败时回退 MCI 公共代�
 - Modrinth API: https://docs.modrinth.com/api/
 - CurseForge schema: https://docs.curseforge.com/rest-api/
 验证：隔离目录实测 Modrinth 的 Mod Menu（含 2 个必需前置）、CurseForge 的 Jade，以及 Adrenaline 整合包（28 个清单文件）下载、校验和入库。另一整合包保持不变。未在测试中启动游戏或修改用户现有模组。
+
+
+0.3.1：Mod 名称中文显示与快捷方式图标
+Mod 下载列表及详情的项目名称会自动匹配中文名，简介、版本号、文件名、项目编号和安装目标不变；整合包名称不受影响。
+未收录的名称保持原名，悬停名称可查看原始名称；英文界面显示原名。名称对照表按需下载并缓存在 minecraft/data/metadata/mod-names-v1.json，每周检查更新，失败时保留缓存和常用名称。
+名称对照来源：龙腾猫跃 / PCL 公开的 MC 百科条目表 https://github.com/Meloong-Git/PCL/blob/main/PCLCS/Resource/WikiEntries.txt 。本启动器是独立产品，与 PCL 无关联；发行包不包含该完整数据表，按需从公开来源获取。
+启动器会修复指向自身的桌面快捷方式图标，保留启动目标、参数和工作目录。图标资源位于 minecraft/launcher/icons，旧快捷方式备份位于 minecraft/launcher/shortcut-backups。

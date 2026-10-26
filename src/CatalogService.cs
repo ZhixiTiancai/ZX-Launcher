@@ -11,7 +11,10 @@ using System.Threading.Tasks;
 using System.Web.Script.Serialization;
 namespace FoolLauncher {
  public sealed class CatalogProject:System.ComponentModel.INotifyPropertyChanged {
-  public string Source,Id,Slug,IconUrl,Website,Kind,Updated,FilterGame,FilterLoader;public string Name{get;set;}public string Summary{get;set;}public long Downloads;public string[] GameVersions,Loaders;
+  public string Source,Id,Slug,IconUrl,Website,Kind,Updated,FilterGame,FilterLoader;string originalName,chineseName;
+  public string Name{get{return Kind=="mod"&&UiText.Language!="en-US"&&!String.IsNullOrEmpty(chineseName)?chineseName:originalName;}set{originalName=value;}}
+  public string OriginalName{get{return originalName;}}public string Summary{get;set;}public long Downloads;public string[] GameVersions,Loaders;
+  internal void SetChineseName(string value){chineseName=value;if(PropertyChanged!=null)PropertyChanged(this,new System.ComponentModel.PropertyChangedEventArgs("Name"));}
   public string Meta {get{return (Source=="modrinth"?"Modrinth":"CurseForge")+"  ·  "+Downloads.ToString("N0")+UiText.T(" 次下载")+(String.IsNullOrEmpty(Updated)?"":"  ·  "+Updated.Substring(0,Math.Min(10,Updated.Length)));}}
   System.Windows.Media.ImageSource icon;public System.Windows.Media.ImageSource IconSource {get{return icon;}set{icon=value;if(PropertyChanged!=null)PropertyChanged(this,new System.ComponentModel.PropertyChangedEventArgs("IconSource"));}}public event System.ComponentModel.PropertyChangedEventHandler PropertyChanged;
   public string VersionsText {get{string loader=String.IsNullOrEmpty(FilterLoader)?String.Join(" / ",(Loaders??new string[0]).Take(4)):FilterLoader;string game=String.IsNullOrEmpty(FilterGame)?String.Join(", ",(GameVersions??new string[0]).Reverse().Take(5)):FilterGame;return String.Join("  ·  ",new[]{loader,game}.Where(x=>x!=""));}}
