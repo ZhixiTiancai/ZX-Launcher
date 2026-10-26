@@ -11,6 +11,12 @@ namespace FoolLauncher {
 {"账号 · 未登录","Account · Not signed in"},
 {"选择账号、离线模式或添加微软账号","Choose an account, play offline or add a Microsoft account"},
 {"整合包库","Modpack library"},
+{"Mod 下载","Mod downloads"},
+{"整合包下载","Modpack downloads"},
+{"即将开放","Coming soon"},
+{"返回整合包库","Back to library"},
+{"Mod 下载功能将在后续版本开放。","Mod downloads will be available in a future version."},
+{"整合包下载功能将在后续版本开放，可先在整合包库导入本地整合包。","Modpack downloads will be available in a future version. You can import local modpacks in the library."},
 {"皮肤库","Skin library"},
 {"设置","Settings"},
 {"＋  导入整合包","+  Import modpack"},
@@ -411,7 +417,11 @@ namespace FoolLauncher {
 {"Skin.SaveCurrent","收藏当前皮肤"},
 {"Skin.External","外部浏览器打开"},
 {"Skin.DownloadHint","网站下载的皮肤会自动加入本地收藏。"},
-{"Skin.BrowserLoading","正在打开内置浏览器…"}
+{"Skin.BrowserLoading","正在打开内置浏览器…"},
+{"Download.ModTitle","Mod 下载"},
+{"Download.PackTitle","整合包下载"},
+{"Download.ComingSoon","即将开放"},
+{"Download.Back","返回整合包库"}
   };
   public static string T(string text){string translated;return Language=="en-US"&&English.TryGetValue(text,out translated)?translated:text;}
   public static void Apply(Window window){foreach(var pair in Resources){window.Resources[pair.Key]=T(pair.Value);if(Application.Current!=null)Application.Current.Resources[pair.Key]=T(pair.Value);}}

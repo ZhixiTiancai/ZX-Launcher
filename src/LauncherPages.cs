@@ -11,6 +11,7 @@ namespace FoolLauncher {
   T Get<T>(string name)where T:class{return Window.FindName(name) as T;}
   public LauncherPages(Window window,string root,Action languageChanged,AccountStore accounts=null,Func<Func<System.Threading.CancellationToken,System.Threading.Tasks.Task>,System.Threading.Tasks.Task> skinRunner=null,Func<bool> busy=null){
    Window=window;Preferences=new UiPreferences(root);LanguageChanged=languageChanged;Skins=new SkinLibraryPage(window,root,accounts,skinRunner,busy);
+   Get<Button>("ModDownloadsNav").Click+=(s,e)=>Navigate("mods");Get<Button>("PackDownloadsNav").Click+=(s,e)=>Navigate("packs");Get<Button>("DownloadsBack").Click+=(s,e)=>Navigate("library");
    Get<Button>("LibraryNav").Click+=(s,e)=>Navigate("library");Get<Button>("SkinsNav").Click+=(s,e)=>Navigate("skins");Get<Button>("SettingsNav").Click+=(s,e)=>Navigate("settings");
    Loading=true;Get<ComboBox>("LanguageBox").SelectedIndex=Preferences.Settings.Language=="en-US"?1:0;Get<Slider>("BackgroundShade").Value=Preferences.Settings.Shade;Loading=false;
    Get<ComboBox>("LanguageBox").SelectionChanged+=(s,e)=>{if(Loading)return;Change(()=>Preferences.Settings.Language=Get<ComboBox>("LanguageBox").SelectedIndex==1?"en-US":"zh-CN",true);};
@@ -28,6 +29,9 @@ namespace FoolLauncher {
    Skins.RefreshLanguage();Navigate(Page);
   }
   public void RefreshAccount(){Skins.AccountChanged();}
-  public void Navigate(string page){Page=page;Skins.SetVisible(page=="skins");Get<FrameworkElement>("LibraryPage").Visibility=page=="library"?Visibility.Visible:Visibility.Collapsed;Get<FrameworkElement>("SkinsPage").Visibility=page=="skins"?Visibility.Visible:Visibility.Collapsed;Get<FrameworkElement>("SettingsPage").Visibility=page=="settings"?Visibility.Visible:Visibility.Collapsed;foreach(var pair in new[]{new[]{"LibraryNav","library"},new[]{"SkinsNav","skins"},new[]{"SettingsNav","settings"}}){var button=Get<Button>(pair[0]);if(pair[1]==page){button.SetResourceReference(Control.BackgroundProperty,"Brush.Selection");button.SetResourceReference(Control.ForegroundProperty,"Brush.Accent");}else{button.Background=Brushes.Transparent;button.SetResourceReference(Control.ForegroundProperty,"Brush.Muted");}}}
+  public void Navigate(string page){if(page!="library"&&page!="mods"&&page!="packs"&&page!="skins"&&page!="settings")page="library";Page=page;
+   bool download=page=="mods"||page=="packs";Get<FrameworkElement>("DownloadsPage").Visibility=download?Visibility.Visible:Visibility.Collapsed;
+   if(download){Get<TextBlock>("DownloadsTitle").Text=UiText.T(page=="mods"?"Mod 下载":"整合包下载");Get<TextBlock>("DownloadsHint").Text=UiText.T(page=="mods"?"Mod 下载功能将在后续版本开放。":"整合包下载功能将在后续版本开放，可先在整合包库导入本地整合包。");Get<System.Windows.Shapes.Path>("DownloadsIcon").Data=(Geometry)Window.Resources[page=="mods"?"Icon.Mod":"Icon.Pack"];}
+   Skins.SetVisible(page=="skins");Get<FrameworkElement>("LibraryPage").Visibility=page=="library"?Visibility.Visible:Visibility.Collapsed;Get<FrameworkElement>("SkinsPage").Visibility=page=="skins"?Visibility.Visible:Visibility.Collapsed;Get<FrameworkElement>("SettingsPage").Visibility=page=="settings"?Visibility.Visible:Visibility.Collapsed;foreach(var pair in new[]{new[]{"LibraryNav","library"},new[]{"ModDownloadsNav","mods"},new[]{"PackDownloadsNav","packs"},new[]{"SkinsNav","skins"},new[]{"SettingsNav","settings"}}){var button=Get<Button>(pair[0]);if(pair[1]==page){button.SetResourceReference(Control.BackgroundProperty,"Brush.Selection");button.SetResourceReference(Control.ForegroundProperty,"Brush.Accent");}else{button.Background=Brushes.Transparent;button.SetResourceReference(Control.ForegroundProperty,"Brush.Muted");}}}
  }
 }

@@ -1,4 +1,4 @@
-﻿# 智熄的启动器 0.2.8
+﻿# 智熄的启动器 0.2.9
 
 [下载最新版](https://github.com/ZhixiTiancai/ZX-Launcher/releases/latest) · [发布与自动更新说明](发布更新说明.md)
 
@@ -182,3 +182,8 @@ active skin afterwards, preserves capes and unknown account fields, and stores o
 selected skin ID per account only after success. Unauthorized sessions may renew their
 existing authorization; no third-party endpoint receives account tokens. Mock tests
 exercise success, failed uploads, account mismatch, renewal, model choice and persistence.
+
+
+0.2.9：侧栏依次为整合包库、Mod 下载（拼图）、整合包下载（收纳盒）、皮肤库、设置。
+两个下载入口目前展示“即将开放”，可返回整合包库；原来的本地导入方式继续保留。
+新的幻彩 ZX 图标使用透明背景，并随程序和后续更新分发。
