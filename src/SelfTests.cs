@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
@@ -47,7 +47,7 @@ namespace FoolLauncher {
    if(GameFiles.LegacyUrl(new GameLibrary{name="net.fabricmc:intermediary:1.21.1",url="https://maven.fabricmc.net"})!="https://maven.fabricmc.net/net/fabricmc/intermediary/1.21.1/intermediary-1.21.1.jar")throw new Exception("Fabric Maven URL failed");
    foreach(string version in new[]{"17.0.20.1","21.0.12.1","1.8.0_402"})if(JavaRuntime.VersionMajor(version)!=(version.StartsWith("1.8")?8:Int32.Parse(version.Substring(0,2))))throw new Exception("Java major parse failed");
    if(JavaRuntime.RequiredMajors(root,"1.21.1")[0]!=21||JavaRuntime.RequiredMajors(root,"1.20.1")[0]!=17||JavaRuntime.RequiredMajors(root,"1.20.5")[0]!=21)throw new Exception("Java release selection failed");
-   foreach(int major in new[]{17,21}){string home=Path.Combine(root,"runtime","jdk-"+major,"bin");Directory.CreateDirectory(home);File.WriteAllText(Path.Combine(home,"javaw.exe"),"");File.WriteAllText(Path.Combine(home,"..","release"),"JAVA_VERSION=\""+major+".0.1\"");}
+   foreach(int major in new[]{17,21}){string home=Path.Combine(root,"runtime","jdk-"+major,"bin");Directory.CreateDirectory(home);JavaManagementTests.FakeExe(Path.Combine(home,"javaw.exe"));File.WriteAllText(Path.Combine(home,"..","release"),"JAVA_VERSION=\""+major+".0.1\"");}
    var javaCfg=new System.Collections.Generic.Dictionary<string,string>();JavaRuntime.Configure(root,"1.20.1",javaCfg,true);if(javaCfg["JavaVersion"]!="17.0.1")throw new Exception("Java17 selection failed");
    JavaRuntime.Configure(root,"1.21.1",javaCfg,true);if(javaCfg["JavaVersion"]!="21.0.1")throw new Exception("Managed Java17 not replaced for 1.21.1");
    LauncherUpdateTests.Run(root);
@@ -60,7 +60,7 @@ namespace FoolLauncher {
    SkinApplicationTests.Run(root);
    AppearanceTests.Run(root);
    CatalogTests.Run(root);
-   PresentationTests.Run(root);
+   PresentationTests.Run(root);JavaManagementTests.Run(root);
    Console.WriteLine("PASS: traversal, import, hashes, metadata hash chain, INI sections, Maven/classifiers, library rules, Fabric/Quilt dependencies, dependency conflicts, Java17/21 selection.");return 0;
   }
  }

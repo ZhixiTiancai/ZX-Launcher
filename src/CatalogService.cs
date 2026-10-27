@@ -88,11 +88,16 @@ namespace FoolLauncher {
   sealed class Pagination {public int totalCount,index,resultCount,pageSize;}
   sealed class CfProject {public string name,slug,summary,dateModified;public int id,gameId,classId;public long downloadCount;public CfLogo logo;public CurseLinks links;}
   sealed class CfLogo {public string thumbnailUrl,url;}
-  public async Task<CatalogResults> Search(CatalogQuery q,CancellationToken ct){
+  public async Task<CatalogResults> Search(CatalogQuery q,CancellationToken ct,ModNameTranslations names=null){
    string[] sources=q.Source=="all"?new[]{"modrinth","curseforge"}:new[]{q.Source};if(sources.Any(s=>s!="modrinth"&&s!="curseforge"))throw new InvalidDataException("不支持此搜索来源。");
-   var results=await Task.WhenAll(sources.Select(async source=>{try{return await SearchOne(q,source,ct).ConfigureAwait(false);}catch(OperationCanceledException){ct.ThrowIfCancellationRequested();return new CatalogResults{Projects=new CatalogProject[0],Warning=source+"：查询超时"};}catch(Exception ex){return new CatalogResults{Projects=new CatalogProject[0],Warning=source+"："+ex.Message};}})).ConfigureAwait(false);
+   var results=await Task.WhenAll(sources.Select(async source=>{try{return q.Kind=="mod"&&names!=null&&ModNameTranslations.Chinese(q.Text)?await SearchChinese(q,source,names,ct).ConfigureAwait(false):await SearchOne(q,source,ct).ConfigureAwait(false);}catch(OperationCanceledException){ct.ThrowIfCancellationRequested();return new CatalogResults{Projects=new CatalogProject[0],Warning=source+"：查询超时"};}catch(Exception ex){return new CatalogResults{Projects=new CatalogProject[0],Warning=source+"："+ex.Message};}})).ConfigureAwait(false);
    var projects=new List<CatalogProject>();for(int n=0;n<20;n++)foreach(var r in results)if(r.Projects.Length>n){r.Projects[n].FilterGame=q.Game;r.Projects[n].FilterLoader=q.Loader;projects.Add(r.Projects[n]);}
    return new CatalogResults{Projects=projects.ToArray(),More=results.Any(r=>r.More),Warning=String.Join("\n",results.Select(r=>r.Warning).Where(s=>s!=""))};
+  }
+  async Task<CatalogResults> SearchChinese(CatalogQuery q,string source,ModNameTranslations names,CancellationToken ct){
+   const int batch=6;string[] slugs=names.SearchSlugs(source,q.Text);var slice=slugs.Skip(q.Page*batch).Take(batch).ToArray();
+   var matches=await Task.WhenAll(slice.Select(async slug=>{var translated=new CatalogQuery{Kind=q.Kind,Source=source,Text=slug,Game=q.Game,Loader=q.Loader,Category=q.Category,Page=0};var result=await SearchOne(translated,source,ct).ConfigureAwait(false);return result.Projects.Where(p=>String.Equals(p.Slug,slug,StringComparison.OrdinalIgnoreCase)).ToArray();})).ConfigureAwait(false);
+   return new CatalogResults{Projects=matches.SelectMany(p=>p).GroupBy(p=>p.Id).Select(p=>p.First()).ToArray(),More=(q.Page+1)*batch<slugs.Length};
   }
   async Task<CatalogResults> SearchOne(CatalogQuery q,string source,CancellationToken ct){
    string json=await Fetch(SearchAddress(q,source),ct).ConfigureAwait(false);

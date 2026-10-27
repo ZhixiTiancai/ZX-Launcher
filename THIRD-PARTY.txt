@@ -55,3 +55,5 @@ Optional runtime Chinese-name data: PCL WikiEntries, maintained by 龙腾猫跃 
 Source: https://github.com/Meloong-Git/PCL/blob/main/PCLCS/Resource/WikiEntries.txt
 Upstream notice: https://github.com/Meloong-Git/PCL/blob/main/LICENCE
 The full upstream table and PCL code are not bundled in this distribution. The independent name-only reader downloads the public table on demand and caches it locally. ZX Launcher is not affiliated with or endorsed by PCL.
+
+Java downloads: Eclipse Temurin official Adoptium API (https://api.adoptium.net/). Downloaded JREs include their original licenses and notices; downloading does not change the system JAVA_HOME or PATH.

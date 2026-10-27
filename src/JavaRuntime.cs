@@ -5,7 +5,9 @@ using System.Linq;
 using System.Text.RegularExpressions;
 namespace FoolLauncher {
  public sealed class JavaRuntime {
-  public string Path,Version;public int Major;
+  public string Path {get;set;}public string Version {get;set;}public int Major {get;set;}public string Architecture {get;set;}public string Source {get;set;}
+  public string Title {get{return "Java "+Version+" · "+Architecture;}}
+  public override string ToString(){return Title;}
   internal static int VersionMajor(string version) {
    var match=Regex.Match(version??"",@"^(?:1\.)?(\d+)");return match.Success?Int32.Parse(match.Groups[1].Value):0;
   }
@@ -35,14 +37,7 @@ namespace FoolLauncher {
    return candidates.OrderBy(j=>Array.IndexOf(majors,j.Major)).FirstOrDefault();
   }
   internal static void Configure(string root,string minecraft,IDictionary<string,string> cfg,bool required) {
-   string current;bool explicitJava=cfg.ContainsKey("OverrideJavaLocation")&&cfg["OverrideJavaLocation"]=="true"&&cfg.TryGetValue("JavaPath",out current)&&File.Exists(current);
-   if(explicitJava) {
-    current=System.IO.Path.GetFullPath(cfg["JavaPath"]);
-    // Keep a user's external Java, but refresh runtimes managed by this launcher.
-    if(!current.StartsWith(System.IO.Path.GetFullPath(System.IO.Path.Combine(root,"runtime"))+System.IO.Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase))return;
-   }
-   int[] majors=RequiredMajors(root,minecraft);var java=Find(root,majors);
-   if(java==null){if(required)throw new IOException("Minecraft "+minecraft+" 需要 Java "+String.Join(" / ",majors)+"，请完整解压新版启动器的 runtime 文件夹，或在 Prism 实例设置中选择对应 Java。");return;}
+   var java=new JavaManager(root).Resolve(minecraft,cfg,required);if(java==null)return;
    cfg["OverrideJavaLocation"]="true";cfg["AutomaticJava"]="false";cfg["JavaPath"]=java.Path.Replace('\\','/');cfg["JavaVersion"]=java.Version;cfg["JavaArchitecture"]="64";
   }
  }

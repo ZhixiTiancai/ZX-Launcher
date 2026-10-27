@@ -31,6 +31,12 @@ namespace FoolLauncher {
    }return result;
   }
   public string Lookup(string source,string slug){if(String.IsNullOrEmpty(slug)||(source!="modrinth"&&source!="curseforge"))return null;string name;lock(Sync){if(Names.TryGetValue(source+":"+slug,out name))return name;}return Common.TryGetValue(slug,out name)?name:null;}
+  public static bool Chinese(string text){return Regex.IsMatch(text??"",@"[\u3400-\u9fff]");}
+  static string SearchKey(string value){return Regex.Replace((value??"").ToLowerInvariant(),@"[\s\p{P}\p{S}]","");}
+  public string[] SearchSlugs(string source,string text){
+   string key=SearchKey(text);if(key.Length==0)return new string[0];var items=new Dictionary<string,string>(Common,StringComparer.OrdinalIgnoreCase);lock(Sync){foreach(var p in Names)if(p.Key.StartsWith(source+":",StringComparison.Ordinal))items[p.Key.Substring(source.Length+1)]=p.Value;}
+   return items.Select(p=>new{Slug=p.Key,Name=SearchKey(p.Value)}).Where(p=>p.Name.Contains(key)).OrderBy(p=>p.Name==key?0:p.Name.StartsWith(key,StringComparison.Ordinal)?1:2).ThenBy(p=>p.Name.Length).ThenBy(p=>p.Slug,StringComparer.OrdinalIgnoreCase).Select(p=>p.Slug).ToArray();
+  }
   public void Apply(IEnumerable<CatalogProject> projects){foreach(var p in projects)p.SetChineseName(p.Kind=="mod"?Lookup(p.Source,p.Slug):null);}
   public Task EnsureAsync(){lock(Sync){if(Updated>DateTime.UtcNow.AddDays(-7)||Attempt>DateTime.UtcNow.AddMinutes(-15))return RefreshTask??Task.FromResult(0);Attempt=DateTime.UtcNow;RefreshTask=Task.Run((Func<Task>)Refresh);return RefreshTask;}}
   async Task Refresh(){try{

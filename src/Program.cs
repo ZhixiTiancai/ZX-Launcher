@@ -14,7 +14,7 @@ using Microsoft.Win32;
 
 [assembly:System.Reflection.AssemblyTitle("智熄的启动器")]
 [assembly:System.Reflection.AssemblyProduct("智熄的启动器")]
-[assembly:System.Reflection.AssemblyVersion("0.3.1.0")]
+[assembly:System.Reflection.AssemblyVersion("0.3.2.0")]
 namespace FoolLauncher {
  public static class Program {
   [STAThread] public static int Main(string[] args) {
@@ -206,7 +206,7 @@ namespace FoolLauncher {
   }
   void ConfigureEngine() {
    string exe=Path.Combine(Service.Root,"launcher","engine","prismlauncher.exe");if(!File.Exists(exe))throw new FileNotFoundException("缺少启动引擎。请完整解压整个压缩包。 ");
-   var java=JavaRuntime.Find(Service.Root,new[]{17,21});if(java==null)throw new FileNotFoundException("缺少 Java 运行时，请完整解压。 ");
+   var java=new JavaManager(Service.Root).Resolve(Current==null?"1.20.1":Current.Minecraft,null,true);
    string file=Path.Combine(Service.Data,"prismlauncher.cfg");
    var settings=new Dictionary<string,string>{{"JavaPath",java.Path.Replace('\\','/')},{"JavaVersion",java.Version},{"JavaArchitecture","64"},{"MinMemAlloc","1024"},{"MaxMemAlloc",Memory.ToString()},{"Language",UiText.Language=="en-US"?"en_US":"zh"},{"InstanceDir",Service.InstanceRoot.Replace('\\','/')},{"ShowConsole","false"},{"ShowConsoleOnError","true"},{"IgnoreJavaWizard","true"},{"UserAskedAboutAutomaticJavaDownload","true"}};
    string selectedClient=Accounts.LaunchClientId();if(!String.IsNullOrWhiteSpace(selectedClient))settings["MSAClientIDOverride"]=selectedClient;

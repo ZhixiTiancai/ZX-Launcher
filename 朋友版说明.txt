@@ -1,4 +1,4 @@
-﻿智熄的启动器 0.3.1 — 朋友分享版（不含整合包）
+﻿智熄的启动器 0.3.2 — 朋友分享版（不含整合包）
 适用系统：Windows 10 / 11，64 位，.NET Framework 4.8
 
 解压后怎样启动？
@@ -119,3 +119,10 @@ Mod 下载列表及详情的项目名称会自动匹配中文名，简介、版�
 未收录的名称保持原名，悬停名称可查看原始名称；英文界面显示原名。名称对照表按需下载并缓存在 minecraft/data/metadata/mod-names-v1.json，每周检查更新，失败时保留缓存和常用名称。
 名称对照来源：龙腾猫跃 / PCL 公开的 MC 百科条目表 https://github.com/Meloong-Git/PCL/blob/main/PCLCS/Resource/WikiEntries.txt 。本启动器是独立产品，与 PCL 无关联；发行包不包含该完整数据表，按需从公开来源获取。
 启动器会修复指向自身的桌面快捷方式图标，保留启动目标、参数和工作目录。图标资源位于 minecraft/launcher/icons，旧快捷方式备份位于 minecraft/launcher/shortcut-backups。
+
+0.3.2：中文 Mod 搜索与 Java 管理
+Mod 下载支持中文和英文名称搜索。中文名先匹配已收录的项目，再使用当前整合包的 Minecraft 版本与加载器查询；未收录的中文名请改用英文。不会改动简介、文件名或安装目标。
+侧栏皮肤下方的 J 按钮进入 Java 管理。默认每次启动按整合包所需版本选择；选择列表中的 Java 并点击“使用所选 Java”可改为手动，勾选自动选择可恢复。
+“检测本机 Java”检查环境变量、注册表、常见安装目录；其他位置可用“手动添加 Java”选择 javaw.exe / java.exe，或“扫描指定文件夹”。仅支持使用 Windows x64 Java，检测不会执行扫描到的程序。
+选择 Java 8 / 11 / 16 / 17 / 21 / 25，查询官方版本后可下载 Eclipse Temurin JRE。下载经 SHA-256 校验后保存到 minecraft/runtime，不替换已有 Java，不修改系统环境变量。下载不会改变当前自动 / 手动模式。
+设置文件：minecraft/data/java-settings.json。启动器内的运行时路径按相对路径保存，便于整体移动；电脑其他位置的 Java 使用原有绝对路径。
