@@ -14,7 +14,7 @@ using Microsoft.Win32;
 
 [assembly:System.Reflection.AssemblyTitle("智熄的启动器")]
 [assembly:System.Reflection.AssemblyProduct("智熄的启动器")]
-[assembly:System.Reflection.AssemblyVersion("0.3.4.0")]
+[assembly:System.Reflection.AssemblyVersion("0.3.5.0")]
 namespace FoolLauncher {
  public static class Program {
   [STAThread] public static int Main(string[] args) {
@@ -181,7 +181,7 @@ namespace FoolLauncher {
    if(i!=null){MemoryLoading=true;try{string file=Path.Combine(Service.Folder(i),"instance.cfg");if(File.Exists(file)){var line=File.ReadAllLines(file).FirstOrDefault(l=>l.StartsWith("MaxMemAlloc="));int m;if(line!=null&&int.TryParse(line.Substring(12),out m)){foreach(ComboBoxItem item in MemoryBox.Items)if((int)item.Tag==m)MemoryBox.SelectedItem=item;}}}finally{MemoryLoading=false;}}
    SetEnabled();
   }
-  void SetEnabled() {bool selected=Current!=null;if(DeletePackButton!=null)DeletePackButton.IsEnabled=!Busy&&selected;ImportButton.IsEnabled=!Busy;PackList.IsEnabled=!Busy;MemoryBox.IsEnabled=!Busy;EngineButton.IsEnabled=AccountButton.IsEnabled=!Busy;LaunchButton.IsEnabled=!Busy&&selected;RepairButton.IsEnabled=!Busy&&selected;FolderButton.IsEnabled=selected;ModsButton.IsEnabled=!Busy&&selected;ExportButton.IsEnabled=SaveExportButton.IsEnabled=!Busy&&selected;LocalButton.IsEnabled=!Busy&&selected;MissingButton.IsEnabled=selected;CancelButton.IsEnabled=Busy;IconButton.IsEnabled=!Busy&&selected;IconButton.Visibility=selected?Visibility.Visible:Visibility.Collapsed;IconLocalButton.IsEnabled=IconDownloadButton.IsEnabled=IconResetButton.IsEnabled=IconCloseButton.IsEnabled=IconUrl.IsEnabled=!Busy;RenameInput.IsEnabled=RenameSaveButton.IsEnabled=RenameCancelButton.IsEnabled=!Busy;RenameButton.IsEnabled=!Busy&&selected;RenameButton.Visibility=selected&&RenameInput.Visibility!=Visibility.Visible?Visibility.Visible:Visibility.Collapsed;}
+  void SetEnabled() {bool selected=Current!=null;if(DeletePackButton!=null)DeletePackButton.IsEnabled=!Busy&&selected;ImportButton.IsEnabled=!Busy;PackList.IsEnabled=!Busy;MemoryBox.IsEnabled=!Busy;EngineButton.IsEnabled=AccountButton.IsEnabled=!Busy;LaunchButton.IsEnabled=!Busy&&selected;RepairButton.IsEnabled=!Busy&&selected;FolderButton.IsEnabled=selected;ModsButton.IsEnabled=!Busy&&selected&&Current.Loader!="原版";ExportButton.IsEnabled=SaveExportButton.IsEnabled=!Busy&&selected;LocalButton.IsEnabled=!Busy&&selected;MissingButton.IsEnabled=selected;CancelButton.IsEnabled=Busy;IconButton.IsEnabled=!Busy&&selected;IconButton.Visibility=selected?Visibility.Visible:Visibility.Collapsed;IconLocalButton.IsEnabled=IconDownloadButton.IsEnabled=IconResetButton.IsEnabled=IconCloseButton.IsEnabled=IconUrl.IsEnabled=!Busy;RenameInput.IsEnabled=RenameSaveButton.IsEnabled=RenameCancelButton.IsEnabled=!Busy;RenameButton.IsEnabled=!Busy&&selected;RenameButton.Visibility=selected&&RenameInput.Visibility!=Visibility.Visible?Visibility.Visible:Visibility.Collapsed;}
   async Task Run(Func<IProgress<Update>,Task> action,bool needsEngineStopped=true) {
    if(Busy)return;if(needsEngineStopped&&EngineRunning()){Log(UiText.T("请先退出随附的 Prism 和游戏，再修改整合包文件。 "));return;}
    Busy=true;TaskCancel=new CancellationTokenSource();SetEnabled();TaskProgress.IsIndeterminate=true;

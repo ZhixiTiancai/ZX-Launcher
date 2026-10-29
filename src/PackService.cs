@@ -100,7 +100,7 @@ namespace FoolLauncher {
    if(pack.files.Length>10000) throw new InvalidDataException("整合包文件数量过多。");
    foreach(var dep in pack.dependencies) {
     if(!new[]{"minecraft","forge","neoforge","fabric-loader","quilt-loader"}.Contains(dep.Key)) throw new InvalidDataException("第一版尚不支持依赖："+dep.Key);
-    if(!Regex.IsMatch(dep.Value??"",@"^[A-Za-z0-9_.+\-]{1,100}$")) throw new InvalidDataException("无效的游戏/加载器版本。");
+    if(!Regex.IsMatch(dep.Value??"",@"^[A-Za-z0-9_][A-Za-z0-9_.+\- ]{0,99}$")) throw new InvalidDataException("无效的游戏/加载器版本。");
    }
    if(pack.dependencies.Keys.Count(k=>k!="minecraft")>1) throw new InvalidDataException("不能同时启用多个模组加载器。");
    var seen=new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -158,7 +158,7 @@ namespace FoolLauncher {
      }
      string id=ReadableId(pack.name,Guid.NewGuid().ToString("N").Substring(0,6));
      var i=new Instance{Id=id,Name=pack.name??"未命名整合包",Version=pack.versionId??"",Minecraft=pack.dependencies["minecraft"],FileCount=pack.files.Count(ClientFile)};
-     i.Loader=String.Join(" / ",pack.dependencies.Where(d=>d.Key!="minecraft").Select(d=>d.Key+" "+d.Value));
+     i.Loader=pack.dependencies.Count==1?"原版":String.Join(" / ",pack.dependencies.Where(d=>d.Key!="minecraft").Select(d=>d.Key+" "+d.Value));
      string folder=Folder(i), game=Game(i);Directory.CreateDirectory(game);
      try {
       var targets=new HashSet<string>(StringComparer.OrdinalIgnoreCase);

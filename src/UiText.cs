@@ -5,6 +5,25 @@ namespace FoolLauncher {
  public static class UiText {
   public static string Language="zh-CN";
   static readonly Dictionary<string,string> English=new Dictionary<string,string>{
+{"搜索版本号，例如 1.20.1、24w、b1.7.3","Search a version, e.g. 1.20.1, 24w, b1.7.3"},
+{"选择版本后下载安装。早期版本可能需要在 Java 管理中下载 Java 8。","Choose a version to install. Older releases may need Java 8 from Java manager."},
+{"官方收录版本：","Official versions: "},
+{"  ·  最新正式版：","  \u00b7  Latest release: "},
+{"  ·  最新快照：","  \u00b7  Latest snapshot: "},
+{"加载 Mojang 官方完整版本清单，包含正式版、快照和早期历史版本。","Browse the complete official Mojang version list, including releases, snapshots and early versions."},
+{"安装完成，已加入游戏库。","Installed and added to the library."},
+{"任务已停止，已下载文件保留，可从游戏库继续校验补全。","Task stopped. Downloaded files are preserved; resume from the library."},
+{"正在读取官方版本清单…","Loading official versions\u2026"},
+{"网络暂不可用，当前显示已缓存的官方清单。","Network unavailable. Showing the cached official list."},
+{"清单已刷新；请选择版本。下载安装不会自动启动游戏。","List refreshed. Choose a version. Installation does not launch the game."},
+{"原版 Minecraft 下载","Vanilla Minecraft downloads"},
+{"全部版本","All versions"},
+{"正式版","Release"},
+{"快照 / 预发布版","Snapshot / pre-release"},
+{"远古 Beta","Old Beta"},
+{"远古 Alpha","Old Alpha"},
+{"刷新版本","Refresh versions"},
+{"下载并安装到游戏库","Download and install to library"},
 {"Java 压缩包中没有可用的 64 位运行时。","No usable x64 runtime was found in the archive."},
 {"正在解压并检查 Java…","Extracting and checking Java…"},
 {"Java 下载校验失败，未安装。","Java download checksum failed. Nothing was installed."},
@@ -412,6 +431,7 @@ namespace FoolLauncher {
 {"皮肤已移入 Windows 回收站。","Skin moved to the Windows Recycle Bin."}
   };
   static readonly Dictionary<string,string> Resources=new Dictionary<string,string>{
+{"Vanilla.Title","原版 Minecraft 下载"},
 {"Java.Title","Java 管理"},
 {"Java.Hint","查看本机和启动器中的 Java，选择自动匹配或手动指定。设置适用于此启动器内的整合包。"},
 {"Java.Auto","每次启动整合包时自动选择兼容 Java"},

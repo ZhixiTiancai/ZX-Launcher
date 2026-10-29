@@ -32,7 +32,7 @@ namespace FoolLauncher {
    client.DefaultRequestHeaders.UserAgent.ParseAdd("FoolLauncher/0.1.1");return client;
   }
   static void Identifier(string value) {
-   if(String.IsNullOrEmpty(value)||!Regex.IsMatch(value,@"^[A-Za-z0-9_.+\-]{1,150}$")||value=="."||value=="..")throw new InvalidDataException("无效的组件标识。");
+   if(String.IsNullOrEmpty(value)||!Regex.IsMatch(value,@"^[A-Za-z0-9_][A-Za-z0-9_.+\- ]{0,149}$")||value=="."||value=="..")throw new InvalidDataException("无效的组件标识。");
   }
   internal static string DependencyVersion(MetaRequirement dependency,IDictionary<string,string> wanted) {
    Identifier(dependency.uid);string selected;
