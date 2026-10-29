@@ -8,7 +8,7 @@ using System.Windows.Media;
 namespace FoolLauncher {
  public static class DeleteConfirmation {
   // This dialog only returns a decision. The caller retains its existing deletion checks.
-  public static bool Show(Window owner,string title,string name,string description,string recovery) {
+  public static bool Show(Window owner,string title,string name,string description,string recovery,string confirmText=null) {
    var dialog=new Window {
     Owner=owner,Title=title,Width=570,SizeToContent=SizeToContent.Height,
     WindowStyle=WindowStyle.None,AllowsTransparency=true,Background=Brushes.Transparent,
@@ -61,7 +61,7 @@ namespace FoolLauncher {
    text("ItemName").Text=name;text("ItemName").ToolTip=name;
    text("Description").Text=description;text("Recovery").Text=recovery;
    var cancel=(Button)card.FindName("CancelButton");cancel.Content=UiText.T("取消");
-   var confirm=(Button)card.FindName("ConfirmButton");confirm.Content=UiText.T("移入回收站");
+   var confirm=(Button)card.FindName("ConfirmButton");confirm.Content=confirmText??UiText.T("移入回收站");
    var close=(Button)card.FindName("CloseButton");close.ToolTip=UiText.T("取消");
    System.Windows.Automation.AutomationProperties.SetName(close,UiText.T("取消"));
    cancel.Click+=(s,e)=>dialog.DialogResult=false;

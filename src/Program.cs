@@ -14,7 +14,7 @@ using Microsoft.Win32;
 
 [assembly:System.Reflection.AssemblyTitle("智熄的启动器")]
 [assembly:System.Reflection.AssemblyProduct("智熄的启动器")]
-[assembly:System.Reflection.AssemblyVersion("0.3.2.0")]
+[assembly:System.Reflection.AssemblyVersion("0.3.3.0")]
 namespace FoolLauncher {
  public static class Program {
   [STAThread] public static int Main(string[] args) {
@@ -80,7 +80,7 @@ namespace FoolLauncher {
     var picker=new SaveFileDialog{Title=UiText.T("导出整合包"),Filter=UiText.T("整合包 ZIP|*.zip|Modrinth 整合包|*.mrpack"),DefaultExt=".zip",FileName=PackExporter.SuggestedName(instance),InitialDirectory=exports};if(picker.ShowDialog(Window)!=true)return;
     await Run(async p=>{var result=await new PackExporter(Service).Export(instance,picker.FileName,p,TaskCancel.Token);Log("已导出 "+result.Files+" 个文件："+result.Path+"。朋友可直接导入此整合包。");Process.Start(new ProcessStartInfo("explorer.exe","/select,"+Quote(result.Path)){UseShellExecute=true});});
    };
-   ModsButton=Get<Button>("ModsButton");ModsButton.Click+=(s,e)=>{var instance=Current;if(instance!=null)Try(()=>{string mods=Path.Combine(Service.Game(instance),"mods");Directory.CreateDirectory(mods);OpenPath(mods);});};
+   ModsButton=Get<Button>("ModsButton");ModsButton.Click+=(s,e)=>{if(Current!=null&&!Busy)Pages.Navigate("modmanager");};
    SaveExportButton=Get<Button>("SaveExportButton");SaveExportButton.Click+=async(s,e)=>{
     var instance=Current;if(instance==null||Busy)return;
     if(EngineRunning()){Log(UiText.T("请先保存世界并退出 Prism 和游戏，再导出存档。"));return;}
