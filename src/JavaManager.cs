@@ -57,14 +57,14 @@ namespace FoolLauncher {
   }
   internal JavaRuntime Resolve(string minecraft,IDictionary<string,string> cfg,bool required){
    JavaRuntime java=null;int[] majors=JavaRuntime.RequiredMajors(Root,minecraft);
-   if(!Settings.Automatic){java=Inspect(Full(Settings.Selected));if(java==null||java.Architecture!="x64"||majors.Length>0&&!majors.Contains(java.Major)){if(required)throw new IOException(UiText.T("手动指定的 Java 不存在或不兼容。请在 Java 管理中重新选择，或开启自动选择。")+"\nMinecraft "+minecraft+UiText.T(" 需要 Java ")+String.Join(" / ",majors));return null;}}
+   if(!Settings.Automatic){java=Inspect(Full(Settings.Selected));if(java==null||java.Architecture!="x64"||majors.Length>0&&!majors.Contains(java.Major)){if(required)throw new JavaRequirementException(UiText.T("手动指定的 Java 不存在或不兼容。请在 Java 管理中重新选择，或开启自动选择。")+"\nMinecraft "+minecraft+UiText.T(" 需要 Java ")+String.Join(" / ",majors),majors);return null;}}
    else {
     // Preserve an external per-instance Prism override until the user saves a launcher-wide policy.
     string old;if(!File.Exists(SettingsFile)&&cfg!=null&&cfg.ContainsKey("OverrideJavaLocation")&&cfg["OverrideJavaLocation"]=="true"&&cfg.TryGetValue("JavaPath",out old)&&!Path.GetFullPath(old).StartsWith(Path.Combine(Root,"runtime")+Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase)){var external=Inspect(old);if(external!=null&&external.Architecture=="x64"&&majors.Contains(external.Major))java=external;}
     if(java==null)java=List(false,CancellationToken.None).Where(j=>j.Architecture=="x64"&&majors.Contains(j.Major)).OrderBy(j=>Array.IndexOf(majors,j.Major)).ThenBy(j=>j.Source==UiText.T("本机 Java")?1:0).ThenByDescending(j=>VersionKey(j.Version)).FirstOrDefault();
     if(java==null)java=List(true,CancellationToken.None).Where(j=>j.Architecture=="x64"&&majors.Contains(j.Major)).OrderBy(j=>Array.IndexOf(majors,j.Major)).ThenByDescending(j=>VersionKey(j.Version)).FirstOrDefault();
    }
-   if(java==null&&required)throw new IOException("Minecraft "+minecraft+UiText.T(" 需要 Java ")+String.Join(" / ",majors)+UiText.T("。请到侧栏 Java 管理下载或添加对应的 64 位 Java。"));return java;
+   if(java==null&&required)throw new JavaRequirementException("Minecraft "+minecraft+UiText.T(" 需要 Java ")+String.Join(" / ",majors)+UiText.T("。请到侧栏 Java 管理下载或添加对应的 64 位 Java。"),majors);return java;
   }
   static string VersionKey(string v){return String.Join(".",Regex.Matches(v??"",@"\d+").Cast<Match>().Take(5).Select(m=>m.Value.PadLeft(8,'0')));}
  }

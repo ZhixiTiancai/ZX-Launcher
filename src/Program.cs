@@ -14,7 +14,7 @@ using Microsoft.Win32;
 
 [assembly:System.Reflection.AssemblyTitle("智熄的启动器")]
 [assembly:System.Reflection.AssemblyProduct("智熄的启动器")]
-[assembly:System.Reflection.AssemblyVersion("0.3.5.0")]
+[assembly:System.Reflection.AssemblyVersion("0.3.6.0")]
 namespace FoolLauncher {
  public static class Program {
   [STAThread] public static int Main(string[] args) {
@@ -189,10 +189,10 @@ namespace FoolLauncher {
     TaskProgress.IsIndeterminate=u.Total==0;if(u.Total>0){TaskProgress.Maximum=u.Total;TaskProgress.Value=u.Done;}
     if((DateTime.UtcNow-LastProgress).TotalMilliseconds>300||u.Done==u.Total&&u.Total>0){Log(u.Message);LastProgress=DateTime.UtcNow;}
    });
-   try{await action(progress);}catch(OperationCanceledException){Log(UiText.T("任务已停止。再次补全时会跳过已校验完成的文件。"));}catch(Exception ex){Log("操作未完成："+ex.Message);MessageBox.Show(Window,ex.Message,UiText.T("操作未完成"));}
-   finally{Busy=false;TaskCancel.Dispose();TaskCancel=null;TaskProgress.IsIndeterminate=false;SetEnabled();ShowPack();if(CloseAfterTask){var pendingClose=Window.Dispatcher.BeginInvoke(new Action(()=>Window.Close()));}}
+   bool openJava=false;int requiredJava=0;try{await action(progress);}catch(JavaRequirementException ex){Log(ex.Message);requiredJava=ex.Majors.FirstOrDefault();openJava=JavaRequirementDialog.Show(Window,ex.Message);}catch(OperationCanceledException){Log(UiText.T("任务已停止。再次补全时会跳过已校验完成的文件。"));}catch(Exception ex){Log("操作未完成："+ex.Message);MessageBox.Show(Window,ex.Message,UiText.T("操作未完成"));}
+   finally{Busy=false;TaskCancel.Dispose();TaskCancel=null;TaskProgress.IsIndeterminate=false;SetEnabled();ShowPack();if(openJava&&Pages!=null)Pages.OpenJavaDownload(requiredJava);if(CloseAfterTask){var pendingClose=Window.Dispatcher.BeginInvoke(new Action(()=>Window.Close()));}}
   }
-  void Try(Action action){try{action();}catch(Exception ex){Log(ex.Message);MessageBox.Show(Window,ex.Message,UiText.T("操作未完成"));}}
+  void Try(Action action){try{action();}catch(JavaRequirementException ex){Log(ex.Message);if(JavaRequirementDialog.Show(Window,ex.Message)&&Pages!=null)Pages.OpenJavaDownload(ex.Majors.FirstOrDefault());}catch(Exception ex){Log(ex.Message);MessageBox.Show(Window,ex.Message,UiText.T("操作未完成"));}}
   void Log(string message) {
    if(message==LastMessage)return;LastMessage=message;string line=DateTime.Now.ToString("HH:mm:ss")+"  "+message+Environment.NewLine;
    LogBox.AppendText(line);if(LogBox.Text.Length>50000)LogBox.Text=LogBox.Text.Substring(LogBox.Text.Length-30000);LogBox.ScrollToEnd();

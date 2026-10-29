@@ -60,7 +60,7 @@ namespace FoolLauncher {
    SkinApplicationTests.Run(root);
    AppearanceTests.Run(root);
    CatalogTests.Run(root);
-   PresentationTests.Run(root);JavaManagementTests.Run(root);ModManagerTests.Run(root);LocalModImportTests.Run(root);VanillaTests.Run(root);
+   PresentationTests.Run(root);JavaManagementTests.Run(root);ModManagerTests.Run(root);LocalModImportTests.Run(root);VanillaTests.Run(root);LoaderTests.Run(root);
    Console.WriteLine("PASS: traversal, import, hashes, metadata hash chain, INI sections, Maven/classifiers, library rules, Fabric/Quilt dependencies, dependency conflicts, Java17/21 selection.");return 0;
   }
  }

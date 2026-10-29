@@ -37,6 +37,7 @@ namespace FoolLauncher {
   public string Minecraft {get;set;}
   public string Loader {get;set;}
   public bool Ready {get;set;}
+  public bool DownloadedGame {get;set;}
   public int FileCount {get;set;}
   public int BundledFileCount {get;set;}
   [ScriptIgnore] public System.Windows.Media.ImageSource IconSource {get;set;}

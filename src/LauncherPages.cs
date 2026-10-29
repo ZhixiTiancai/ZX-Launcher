@@ -30,6 +30,7 @@ namespace FoolLauncher {
    foreach(var palette in UiPreferences.Themes){var p=palette;var row=new StackPanel{Orientation=Orientation.Horizontal};row.Children.Add(new Ellipse{Width=17,Height=17,Fill=(Brush)new BrushConverter().ConvertFromString(p.Id=="white"||p.Id=="black"?p.Base:p.Accent),Margin=new Thickness(0,0,8,0),Stroke=Brushes.Gray,StrokeThickness=0.5});row.Children.Add(new TextBlock{Text=UiText.T(p.Name)+(Preferences.Settings.Theme==p.Id?"  ✓":""),VerticalAlignment=VerticalAlignment.Center});var b=new Button{Content=row,Padding=new Thickness(12,10,12,10),Margin=new Thickness(0,0,10,10),MinWidth=115,ToolTip=UiText.T(p.Name)};b.SetResourceReference(Control.BackgroundProperty,Preferences.Settings.Theme==p.Id?"Brush.Selection":"Brush.Button");b.Click+=(s,e)=>Change(()=>Preferences.Settings.Theme=p.Id,false);choices.Children.Add(b);}
    Skins.RefreshLanguage();Downloads.RefreshLanguage();Java.RefreshLanguage();Vanilla.RefreshLanguage();Navigate(Page);
   }
+  public void OpenJavaDownload(int major){Navigate("java");Java.FocusDownload(major);}
   public void RefreshAccount(){Skins.AccountChanged();}
   public void Navigate(string page){if(page!="library"&&page!="mods"&&page!="packs"&&page!="skins"&&page!="settings"&&page!="java"&&page!="modmanager"&&page!="vanilla")page="library";Page=page;
    Vanilla.Show(page=="vanilla");Mods.Show(page=="modmanager");bool download=page=="mods"||page=="packs";Get<FrameworkElement>("DownloadsPage").Visibility=download?Visibility.Visible:Visibility.Collapsed;
