@@ -14,7 +14,7 @@ using Microsoft.Win32;
 
 [assembly:System.Reflection.AssemblyTitle("智熄的启动器")]
 [assembly:System.Reflection.AssemblyProduct("智熄的启动器")]
-[assembly:System.Reflection.AssemblyVersion("0.3.6.0")]
+[assembly:System.Reflection.AssemblyVersion("0.3.7.0")]
 namespace FoolLauncher {
  public static class Program {
   [STAThread] public static int Main(string[] args) {
@@ -116,7 +116,7 @@ namespace FoolLauncher {
     var i=Current;if(i==null)return;
     string accountArguments;try{accountArguments=Accounts.LaunchArguments();}catch(Exception ex){Log(ex.Message);new AccountWindow(Window,Accounts,EngineRunning,RefreshAccount).Show();return;}
     if(EngineRunning()){Log("Prism 正在运行。请在 Prism 内启动该整合包，或退出 Prism 后再点击启动。");OpenEngine(null);return;}
-    await Run(async p=>{int missing=await Service.Repair(i,p,TaskCancel.Token);Refresh(i.Id);if(missing!=0)throw new IOException(UiText.T("整合包仍有缺失文件，已阻止启动。可查看缺失清单或重试补全。"));var metadata=new MetadataCache(Service.Data);await metadata.Ensure(Service.Folder(i),p,TaskCancel.Token);await new GameFiles(Service).Ensure(metadata.VersionFiles,p,TaskCancel.Token);Service.ConfigureInstance(i,Memory,true);ConfigureEngine();OpenEngine(i.Id,accountArguments);Log("已交给 Prism：游戏文件已预检，继续启动模组加载器。 ");});
+    await Run(async p=>{int missing=await Service.Repair(i,p,TaskCancel.Token);Refresh(i.Id);if(missing!=0)throw new IOException(UiText.T("整合包仍有缺失文件，已阻止启动。可查看缺失清单或重试补全。"));var metadata=new MetadataCache(Service.Data);await metadata.Ensure(Service.Folder(i),p,TaskCancel.Token);await new GameFiles(Service).Ensure(metadata.VersionFiles,p,TaskCancel.Token);Service.ConfigureInstance(i,Memory,true);ConfigureEngine();using(var engine=StartEngine(i.Id,accountArguments)){await EngineLaunchUi.Wait(Window,engine,i.Name,p,TaskCancel.Token);}});
    };
    EngineButton.Click+=(s,e)=>Try(()=>{if(!EngineRunning())ConfigureEngine();OpenEngine(null);Log("已打开游戏引擎高级设置。账号可从本启动器右上角管理。");});
    FolderButton.Click+=(s,e)=>{if(Current!=null)Try(()=>OpenPath(Service.Game(Current)));};
@@ -214,8 +214,11 @@ namespace FoolLauncher {
   }
   static string Quote(string s) {return "\""+s.Replace("\"","")+"\"";}
   void OpenEngine(string id,string accountArguments="") {
+   using(var process=StartEngine(id,accountArguments)){}
+  }
+  Process StartEngine(string id,string accountArguments="") {
    var info=new ProcessStartInfo(Path.Combine(Service.Root,"launcher","engine","prismlauncher.exe"),"--dir "+Quote(Service.Data)+(id==null?"":" --launch "+Quote(id)+accountArguments)){WorkingDirectory=Service.Root,UseShellExecute=false};
-   Process.Start(info);
+   return Process.Start(info);
   }
   void RefreshAccount() {
    if(Pages!=null)Pages.RefreshAccount();

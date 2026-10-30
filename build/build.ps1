@@ -7,6 +7,7 @@ New-Item -ItemType Directory -Force -Path $output | Out-Null
 $framework = 'C:\Windows\Microsoft.NET\Framework64\v4.0.30319'
 $refs = @('System.Windows.Forms.dll','Microsoft.VisualBasic.dll','System.dll','System.Core.dll','System.Security.dll','System.Net.Http.dll','System.Web.Extensions.dll','System.IO.Compression.dll','System.IO.Compression.FileSystem.dll','System.Xaml.dll','WPF\WindowsBase.dll','WPF\PresentationCore.dll','WPF\PresentationFramework.dll') | ForEach-Object { '/reference:' + (Join-Path $framework $_) }
 $refs += @('Microsoft.Web.WebView2.Core.dll','Microsoft.Web.WebView2.Wpf.dll') | ForEach-Object { '/reference:' + (Join-Path $output $_) }
+$refs += @('UIAutomationClient.dll','UIAutomationTypes.dll') | ForEach-Object { '/reference:' + (Join-Path $framework ('WPF\'+$_)) }
 $sources = Get-ChildItem -LiteralPath (Join-Path $taskRoot 'src') -Filter '*.cs' | Select-Object -ExpandProperty FullName
 $iconResource = '/resource:' + (Join-Path $taskRoot 'src\assets\default-grass.png') + ',FoolLauncher.DefaultGrass.png'
 $logoResource='/resource:'+(Join-Path $taskRoot 'src\assets\launcher-logo.png')+',FoolLauncher.Logo.png'
