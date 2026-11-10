@@ -30,9 +30,9 @@ namespace FoolLauncher {
    return String.IsNullOrWhiteSpace(title)||title==v.File.Name?v.File.Name:title+"\n"+v.File.Name;
   }
   internal static bool Replace(Window owner,ModTarget target,ModReplacement[] changes){
-   var dialog=new ThemedDialog(owner,"发现重复模组","「"+target.Name+"」已包含下面的模组。覆盖会备份旧文件，取消则不安装本次下载的任何模组。");
+   var dialog=new ThemedDialog(owner,"发现重复模组","「"+target.Name+"」已包含下面的模组。可以备份并覆盖，也可以保留旧文件，继续安装其他可用模组。");
    List(dialog,changes.Select(c=>c.OldFile+"\n→ "+c.NewFile));
-   return Confirm(dialog,"是，覆盖","否，取消下载");
+   return Confirm(dialog,"备份并覆盖","保留已有，继续");
   }
  }
 }

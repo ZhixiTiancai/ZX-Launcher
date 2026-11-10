@@ -24,7 +24,7 @@ namespace FoolLauncher {
   }
  }
  public sealed class InstalledCatalogMod {public string Source,Project,Version,FileName;}
- public sealed class ModInstallResult {public int Files,Dependencies,Replaced;public string Backup,Target;}
+ public sealed class ModInstallResult {public int Files,Dependencies,Replaced,Kept;public string Backup,Target;public string[] Blocked=new string[0];}
  public sealed class ModReplacement {
   public readonly string OldFile,NewFile;
   internal readonly string Path,Hash;
@@ -88,11 +88,29 @@ namespace FoolLauncher {
   }
   static string[] ExistingMods(string mods){LauncherUpdateCore.NoLinks(mods);return Directory.Exists(mods)?Directory.GetFiles(mods).Where(f=>f.EndsWith(".jar",StringComparison.OrdinalIgnoreCase)||f.EndsWith(".jar.disabled",StringComparison.OrdinalIgnoreCase)).ToArray():new string[0];}
   static bool Active(string path){return path.EndsWith(".jar",StringComparison.OrdinalIgnoreCase);}
-  static async Task Approve(IEnumerable<ModReplacement> replacements,HashSet<string> approved,Func<ModReplacement[],Task<bool>> confirm,CancellationToken ct){
-   ct.ThrowIfCancellationRequested();var pending=replacements.Where(r=>!approved.Contains(r.Key)).ToArray();if(pending.Length==0)return;
+  static async Task<bool> Approve(IEnumerable<ModReplacement> replacements,HashSet<string> approved,Func<ModReplacement[],Task<bool>> confirm,CancellationToken ct){
+   ct.ThrowIfCancellationRequested();var pending=replacements.Where(r=>!approved.Contains(r.Key)).GroupBy(r=>r.Key,StringComparer.OrdinalIgnoreCase).Select(g=>g.First()).ToArray();if(pending.Length==0)return true;
    if(confirm==null)throw new IOException("检测到已有模组，需要确认覆盖后才能安装。");
-   if(!await confirm(pending).ConfigureAwait(false))throw new OperationCanceledException("已取消覆盖。");
-   ct.ThrowIfCancellationRequested();foreach(var item in pending)approved.Add(item.Key);
+   bool accepted=await confirm(pending).ConfigureAwait(false);
+   ct.ThrowIfCancellationRequested();if(accepted)foreach(var item in pending)approved.Add(item.Key);return accepted;
+  }
+  sealed class PlannedMod {
+   public CatalogVersion Version;public string Stage,Hash,Same,Destination;public HashSet<string> Ids;public ModReplacement[] Replacements;
+  }
+  sealed class KeptMod {public string[] Paths;public bool Exact;}
+  static void Keep(Dictionary<CatalogVersion,KeptMod> kept,CatalogVersion version,IEnumerable<string> paths,string same){
+   kept[version]=new KeptMod{Paths=(same==null?paths:paths.Concat(new[]{same})).Distinct(StringComparer.OrdinalIgnoreCase).ToArray(),Exact=same!=null};
+  }
+  static void BlockUnavailable(List<CatalogVersion> versions,Dictionary<CatalogVersion,KeptMod> kept,Dictionary<CatalogVersion,string> blocked){
+   bool changed;do{changed=false;foreach(var v in versions.Where(v=>!kept.ContainsKey(v)&&!blocked.ContainsKey(v)).ToArray())
+    foreach(var dep in (v.Dependencies??new CatalogDependency[0]).Where(d=>d.Type=="required")){
+     bool pinned=!String.IsNullOrEmpty(dep.Version);
+     var required=versions.FirstOrDefault(d=>d.Source==v.Source&&(pinned?d.Id==dep.Version:d.ProjectId==dep.Project));
+     KeptMod retained;if(required!=null&&(blocked.ContainsKey(required)||kept.TryGetValue(required,out retained)&&(!retained.Paths.Any(Active)||pinned&&!retained.Exact))){
+      blocked[v]=v.File.Name+"：保留的前置无法满足要求（"+required.File.Name+"）。";changed=true;break;
+     }
+    }
+   }while(changed);
   }
   internal async Task<ModInstallResult> InstallResolved(ModTarget target,List<CatalogVersion> versions,IProgress<Update> progress,CancellationToken ct,Func<ModReplacement[],Task<bool>> confirm,Action<int> afterWrite=null){
    target.Check(Service);
@@ -102,43 +120,57 @@ namespace FoolLauncher {
     string mods=Path.Combine(target.Folder,"minecraft","mods"),receiptFile=Path.Combine(target.Folder,"catalog-mods.json");LauncherUpdateCore.NoLinks(receiptFile);
     var receipts=File.Exists(receiptFile)?Json.Read<List<InstalledCatalogMod>>(receiptFile):new List<InstalledCatalogMod>();
     var existing=ExistingMods(mods);var hashes=new Dictionary<string,string>();foreach(string file in existing){ct.ThrowIfCancellationRequested();LauncherUpdateCore.NoLinks(file);hashes[file]=LauncherUpdateCore.HashFile(file);}
-    var approved=new HashSet<string>(StringComparer.OrdinalIgnoreCase);var known=new List<ModReplacement>();var copies=new Dictionary<CatalogVersion,string>();
+    var approved=new HashSet<string>(StringComparer.OrdinalIgnoreCase);var known=new Dictionary<CatalogVersion,ModReplacement[]>();var copies=new Dictionary<CatalogVersion,string>();var activeCopies=new Dictionary<CatalogVersion,string>();
+    var kept=new Dictionary<CatalogVersion,KeptMod>();var blocked=new Dictionary<CatalogVersion,string>();
     foreach(var v in versions){
-     string same=existing.FirstOrDefault(f=>Active(f)&&Match(f,v.File)),copy=same??existing.FirstOrDefault(f=>!Active(f)&&Match(f,v.File));copies[v]=copy;
-     foreach(string file in existing.Where(f=>f!=same&&(f==copy||receipts.Any(r=>r.Source==v.Source&&r.Project==v.ProjectId&&String.Equals(r.FileName,Path.GetFileName(f),StringComparison.OrdinalIgnoreCase)))))known.Add(new ModReplacement(file,hashes[file],same==null?v.File.Name:Path.GetFileName(same)));
+     string same=existing.FirstOrDefault(f=>Active(f)&&Match(f,v.File)),copy=same??existing.FirstOrDefault(f=>!Active(f)&&Match(f,v.File));copies[v]=copy;activeCopies[v]=same;
+     known[v]=existing.Where(f=>f!=same&&(f==copy||receipts.Any(r=>r.Source==v.Source&&r.Project==v.ProjectId&&String.Equals(r.FileName,Path.GetFileName(f),StringComparison.OrdinalIgnoreCase)))).Select(f=>new ModReplacement(f,hashes[f],same==null?v.File.Name:Path.GetFileName(same))).ToArray();
     }
-    await Approve(known,approved,confirm,ct).ConfigureAwait(false);
+    if(!await Approve(known.Values.SelectMany(r=>r),approved,confirm,ct).ConfigureAwait(false))
+     foreach(var pair in known.Where(p=>p.Value.Length>0))Keep(kept,pair.Key,pair.Value.Select(r=>r.Path),activeCopies[pair.Key]);
+    BlockUnavailable(versions,kept,blocked);
     var staged=new Dictionary<CatalogVersion,string>();int n=0;
-    foreach(var version in versions){ct.ThrowIfCancellationRequested();string path=Path.Combine(staging,(++n)+".jar"),same=copies[version]??staged.Values.FirstOrDefault(f=>Match(f,version.File));
+    foreach(var version in versions.Where(v=>!kept.ContainsKey(v)&&!blocked.ContainsKey(v))){ct.ThrowIfCancellationRequested();string path=Path.Combine(staging,(++n)+".jar"),same=copies[version]??staged.Values.FirstOrDefault(f=>Match(f,version.File));
      if(same!=null){LauncherUpdateCore.NoLinks(same);File.Copy(same,path);progress.Report(new Update("已存在并通过校验："+Path.GetFileName(same)));}else await Download(version.File,path,"mod",progress,ct).ConfigureAwait(false);if(!Match(path,version.File))throw new IOException("Mod 校验失败："+version.File.Name);staged[version]=path;}
-    return await Task.Run(()=>InstallPrepared(target,versions,staged,staging,progress,ct,afterWrite,existing,hashes,receipts,approved,confirm),ct).ConfigureAwait(false);
+    return await Task.Run(()=>InstallPrepared(target,versions,staged,staging,progress,ct,afterWrite,existing,hashes,receipts,approved,confirm,kept,blocked),ct).ConfigureAwait(false);
    }}finally{if(Directory.Exists(staging)){LauncherUpdateCore.NoLinks(staging);Directory.Delete(staging,true);}}
   }
-  async Task<ModInstallResult> InstallPrepared(ModTarget target,List<CatalogVersion> versions,Dictionary<CatalogVersion,string> staged,string staging,IProgress<Update> progress,CancellationToken ct,Action<int> afterWrite,string[] existing,Dictionary<string,string> hashes,List<InstalledCatalogMod> receipts,HashSet<string> approved,Func<ModReplacement[],Task<bool>> confirm){
+  async Task<ModInstallResult> InstallPrepared(ModTarget target,List<CatalogVersion> versions,Dictionary<CatalogVersion,string> staged,string staging,IProgress<Update> progress,CancellationToken ct,Action<int> afterWrite,string[] existing,Dictionary<string,string> hashes,List<InstalledCatalogMod> receipts,HashSet<string> approved,Func<ModReplacement[],Task<bool>> confirm,Dictionary<CatalogVersion,KeptMod> kept,Dictionary<CatalogVersion,string> blocked){
    ct.ThrowIfCancellationRequested();target.Check(Service);string mods=Path.Combine(target.Folder,"minecraft","mods");LauncherUpdateCore.NoLinks(mods);
-   var identities=new Dictionary<string,HashSet<string>>();var replacements=new List<ModReplacement>();
+   var identities=new Dictionary<string,HashSet<string>>();
    foreach(string file in existing){ct.ThrowIfCancellationRequested();LauncherUpdateCore.NoLinks(file);try{identities[file]=ModIds(file);}catch{identities[file]=new HashSet<string>();}}
-   foreach(var v in versions)foreach(var dep in v.Dependencies??new CatalogDependency[0])if(dep.Type=="incompatible"&&receipts.Any(r=>r.Source==v.Source&&r.Project==dep.Project&&File.Exists(PackService.SafePath(mods,r.FileName))))throw new IOException("当前整合包中已有此版本声明不兼容的 Mod，请先处理冲突。");
+   var plans=new List<PlannedMod>();
+   foreach(var v in versions.Where(staged.ContainsKey)){
+    ct.ThrowIfCancellationRequested();string hash=LauncherUpdateCore.HashFile(staged[v]);var ids=ModIds(staged[v]);
+    string same=existing.FirstOrDefault(f=>Active(f)&&hashes[f]==hash),destination=same??PackService.SafePath(mods,v.File.Name);
+    var replacements=existing.Where(f=>f!=same&&(identities[f].Overlaps(ids)||hashes[f]==hash||receipts.Any(r=>r.Source==v.Source&&r.Project==v.ProjectId&&String.Equals(r.FileName,Path.GetFileName(f),StringComparison.OrdinalIgnoreCase)))).Select(f=>new ModReplacement(f,hashes[f],Path.GetFileName(destination))).ToArray();
+    plans.Add(new PlannedMod{Version=v,Stage=staged[v],Hash=hash,Ids=ids,Same=same,Destination=destination,Replacements=replacements});
+   }
+   if(!await Approve(plans.SelectMany(p=>p.Replacements),approved,confirm,ct).ConfigureAwait(false))
+    foreach(var p in plans.Where(p=>p.Replacements.Any(r=>!approved.Contains(r.Key))))Keep(kept,p.Version,p.Replacements.Select(r=>r.Path),p.Same);
+   var protectedPaths=new HashSet<string>(kept.Values.SelectMany(k=>k.Paths),StringComparer.OrdinalIgnoreCase);
+   foreach(var p in plans.Where(p=>!kept.ContainsKey(p.Version)&&p.Replacements.Any(r=>protectedPaths.Contains(r.Path))))blocked[p.Version]=p.Version.File.Name+"：会覆盖你选择保留的文件。";
+   BlockUnavailable(versions,kept,blocked);
+   var result=new ModInstallResult{Dependencies=versions.Count-1,Target=mods,Kept=kept.Count,Blocked=blocked.Values.ToArray()};
    var remove=new HashSet<string>(StringComparer.OrdinalIgnoreCase);var installs=new Dictionary<string,string>(StringComparer.OrdinalIgnoreCase);var artifacts=new Dictionary<string,CatalogArtifact>(StringComparer.OrdinalIgnoreCase);
    var plannedIds=new Dictionary<string,string>(StringComparer.OrdinalIgnoreCase);var identical=new Dictionary<string,string>();var reused=new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-   foreach(var v in versions){var hash=LauncherUpdateCore.HashFile(staged[v]);string destination;
-    if(!identical.TryGetValue(hash,out destination)){
-    var ids=ModIds(staged[v]);foreach(string id in ids){string previous;if(plannedIds.TryGetValue(id,out previous))throw new IOException("本次下载的两个不同文件都声明了模组 ID："+id+"\n"+previous+"\n"+v.File.Name+"\n请选择其他版本。");plannedIds[id]=v.File.Name;}
-    string same=existing.FirstOrDefault(f=>Active(f)&&Match(f,v.File));destination=same??PackService.SafePath(mods,v.File.Name);
-    var older=existing.Where(f=>f!=same&&(identities[f].Overlaps(ids)||hashes[f]==hash||receipts.Any(r=>r.Source==v.Source&&r.Project==v.ProjectId&&r.FileName.Equals(Path.GetFileName(f),StringComparison.OrdinalIgnoreCase)))).ToArray();
-    if(same==null){
+   foreach(var p in plans.Where(p=>!kept.ContainsKey(p.Version)&&!blocked.ContainsKey(p.Version))){var v=p.Version;string destination;
+    foreach(var dep in v.Dependencies??new CatalogDependency[0])if(dep.Type=="incompatible"&&receipts.Any(r=>r.Source==v.Source&&r.Project==dep.Project&&File.Exists(PackService.SafePath(mods,r.FileName))))throw new IOException("当前整合包中已有此版本声明不兼容的 Mod，请先处理冲突。");
+    if(!identical.TryGetValue(p.Hash,out destination)){
+    foreach(string id in p.Ids){string previous;if(plannedIds.TryGetValue(id,out previous))throw new IOException("本次下载的两个不同文件都声明了模组 ID："+id+"\n"+previous+"\n"+v.File.Name+"\n请选择其他版本。");plannedIds[id]=v.File.Name;}
+    destination=p.Destination;var older=p.Replacements.Select(r=>r.Path).ToArray();
+    if(p.Same==null){
      if(File.Exists(destination)&&!older.Contains(destination,StringComparer.OrdinalIgnoreCase))throw new IOException("已存在同名但属于不同 Mod 的文件，请先检查 Mod目录："+v.File.Name);
      if(File.Exists(destination+".disabled")&&!older.Contains(destination+".disabled",StringComparer.OrdinalIgnoreCase))throw new IOException("已存在同名的禁用文件，请先检查 Mod 管理："+v.File.Name);
-     if(installs.ContainsKey(destination))throw new IOException("不同资源使用了同一个文件名，已停止安装。");installs[destination]=staged[v];artifacts[destination]=v.File;
-    }else reused.Add(same);
-    foreach(string old in older){remove.Add(old);replacements.Add(new ModReplacement(old,hashes[old],Path.GetFileName(destination)));}
-    identical[hash]=destination;
+     if(installs.ContainsKey(destination))throw new IOException("不同资源使用了同一个文件名，已停止安装。");installs[destination]=p.Stage;artifacts[destination]=v.File;
+    }else reused.Add(p.Same);
+    foreach(string old in older)remove.Add(old);
+    identical[p.Hash]=destination;
     }
     receipts.RemoveAll(r=>r.Source==v.Source&&r.Project==v.ProjectId);receipts.Add(new InstalledCatalogMod{Source=v.Source,Project=v.ProjectId,Version=v.Id,FileName=Path.GetFileName(destination)});
    }
    if(remove.Overlaps(reused))throw new IOException("本次安装的文件之间存在冲突，请选择其他版本。");
-   await Approve(replacements,approved,confirm,ct).ConfigureAwait(false);
-   if(installs.Count==0&&remove.Count==0)return new ModInstallResult{Dependencies=versions.Count-1,Target=mods};
+   if(installs.Count==0&&remove.Count==0)return result;
    receipts.RemoveAll(r=>remove.Contains(PackService.SafePath(mods,r.FileName))&&!installs.ContainsKey(PackService.SafePath(mods,r.FileName)));
    var index=Service.Index(new Instance{Id=target.Id});index.files=index.files.Where(f=>!remove.Contains(PackService.SafePath(Path.Combine(target.Folder,"minecraft"),f.path))).ToArray();
    var entries=index.files.ToList();foreach(var pair in artifacts){entries.RemoveAll(f=>f.path.Equals("mods/"+Path.GetFileName(pair.Key),StringComparison.OrdinalIgnoreCase));entries.Add(new PackFile{path="mods/"+Path.GetFileName(pair.Key),downloads=new[]{pair.Value.Url},fileSize=pair.Value.Size,hashes=pair.Value.Hashes});}index.files=entries.ToArray();Service.Validate(index);
@@ -152,7 +184,7 @@ namespace FoolLauncher {
    if(!new HashSet<string>(ExistingMods(mods),StringComparer.OrdinalIgnoreCase).SetEquals(existing))throw new IOException("Mod目录在下载期间发生变化，请重试。");
    if(WritingBlocked!=null&&WritingBlocked())throw new IOException("Prism 或游戏已打开，请退出后重试安装。");
    string backup=PackService.SafePath(target.Folder,"mod-backups/"+DateTime.Now.ToString("yyyyMMdd-HHmmss")+"-"+Guid.NewGuid().ToString("N").Substring(0,6));progress.Report(new Update("正在安装到 "+target.Name+" 的 mods 文件夹…"));Commit(target.Folder,staging,backup,writes,ct,afterWrite);
-   return new ModInstallResult{Files=installs.Count,Dependencies=versions.Count-1,Replaced=remove.Count,Backup=backup,Target=mods};
+   result.Files=installs.Count;result.Replaced=remove.Count;result.Backup=backup;return result;
   }
   public async Task<Instance> InstallPack(CatalogProject project,CatalogVersion selected,IProgress<Update> progress,Action<Instance> imported,CancellationToken ct){
    if(project.Kind!="modpack"||selected.Source!=project.Source||selected.ProjectId!=project.Id)throw new IOException("整合包项目或版本不匹配。");CatalogNetwork.Validate(selected.File,"modpack");

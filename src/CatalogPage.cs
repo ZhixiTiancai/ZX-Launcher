@@ -76,7 +76,7 @@ namespace FoolLauncher {
   void Controls(bool enabled){Working=!enabled;foreach(string name in new[]{"CatalogSearch","CatalogReset","CatalogName","CatalogSource","CatalogCategory","CatalogResults","CatalogVersions","CatalogWebsite","LibraryNav","ModDownloadsNav","PackDownloadsNav","SkinsNav","SettingsNav","DownloadsBack"})Get<Control>(name).IsEnabled=enabled;Get<Button>("CatalogCancel").Visibility=enabled?Visibility.Collapsed:Visibility.Visible;Get<ProgressBar>("CatalogProgress").Visibility=enabled?Visibility.Collapsed:Visibility.Visible;Get<ComboBox>("CatalogGame").IsEnabled=Get<ComboBox>("CatalogLoader").IsEnabled=enabled&&Kind=="modpack";Get<Button>("CatalogPrev").IsEnabled=enabled&&Page>0;Get<Button>("CatalogNext").IsEnabled=enabled&&More;Get<Button>("CatalogMoreVersions").IsEnabled=enabled&&Versions.Count>0;VersionChanged();}
   async Task Install(){
    if(Working||Busy())return;if(EngineRunning()){Status(UiText.T("请先退出 Prism 和游戏，再安装资源。"));return;}var project=Project;var version=Get<ComboBox>("CatalogVersions").SelectedItem as CatalogVersion;if(project==null||version==null)return;
-   ModTarget target=null;try{if(Kind=="mod")target=ModTarget.Capture(Service,Selected());}catch(Exception ex){Status(ex.Message);return;}string kind=Kind;Instance installed=null;bool complete=false;Controls(false);
+   ModTarget target=null;try{if(Kind=="mod")target=ModTarget.Capture(Service,Selected());}catch(Exception ex){Status(ex.Message);return;}string kind=Kind;Instance installed=null;bool complete=false;string modSummary=null;Controls(false);
    try{await Runner(async(global,ct)=>{using(InstallCancel=CancellationTokenSource.CreateLinkedTokenSource(ct)){
     var uiProgress=new Progress<Update>(u=>{if(!Working)return;Status(u.Message);var bar=Get<ProgressBar>("CatalogProgress");bar.IsIndeterminate=u.Total<=0;if(u.Total>0){bar.Maximum=u.Total;bar.Value=u.Done;}});var progress=new Both(global,uiProgress);
     try{if(kind=="mod"){
@@ -87,13 +87,15 @@ namespace FoolLauncher {
       token.ThrowIfCancellationRequested();
       if(plan.Count>1&&!ModDownloadDialogs.Download(Window,target,fresh,plan))throw new OperationCanceledException();
       var result=await Task.Run(()=>Installer.InstallResolved(target,plan,progress,token,changes=>Window.Dispatcher.InvokeAsync(()=>{token.ThrowIfCancellationRequested();return ModDownloadDialogs.Replace(Window,target,changes);}).Task),token);
-      Log(result.Files==0&&result.Replaced==0?"所需模组文件已存在并通过校验。":"已安装到“"+target.Name+"”："+result.Files+" 个新文件，解析 "+result.Dependencies+" 个必需前置，替换 "+result.Replaced+" 个旧文件。备份："+result.Backup);
+      modSummary=result.Files==0&&result.Replaced==0&&result.Kept==0&&result.Blocked.Length==0?"所需模组文件已存在并通过校验。":"已安装 "+result.Files+" 个文件，覆盖 "+result.Replaced+" 个旧文件，保留 "+result.Kept+" 个已有模组。";
+      if(result.Blocked.Length>0)modSummary+="\n未安装："+String.Join("\n",result.Blocked);
+      Log(modSummary+(result.Backup==null?"":" 备份："+result.Backup));
       Window.Dispatcher.Invoke(()=>Imported(new Instance{Id=target.Id}));
      }else{var fresh=await Api.Version(version.Source,version.ProjectId,version.Id,InstallCancel.Token);installed=await Installer.InstallPack(project,fresh,progress,i=>Window.Dispatcher.Invoke(()=>Imported(i)),InstallCancel.Token);Window.Dispatcher.Invoke(()=>Imported(installed));Log("整合包“"+installed.Name+"”已添加到整合包库。"+(installed.Ready?"文件已补全。":"部分文件待补全，可在库中重试。"));}complete=true;}
     catch(OperationCanceledException){Window.Dispatcher.Invoke(()=>Status(UiText.T("下载已取消，原有 Mod 保持不变；已导入的整合包可在库中继续补全。")));throw;}
     catch(Exception ex){Window.Dispatcher.Invoke(()=>Status(ex.Message));throw;}
    }});
-   }catch(Exception ex){Status(ex.Message);}finally{InstallCancel=null;Controls(true);UpdateTarget();if(complete)Status(kind=="mod"?UiText.T("安装完成，仅修改了所选整合包。"):(installed.Ready?UiText.T("整合包已添加到库，文件已补全。"):UiText.T("整合包已添加到库，部分文件需要补全。")));}
+   }catch(Exception ex){Status(ex.Message);}finally{InstallCancel=null;Controls(true);UpdateTarget();if(complete)Status(kind=="mod"?modSummary:(installed.Ready?UiText.T("整合包已添加到库，文件已补全。"):UiText.T("整合包已添加到库，部分文件需要补全。")));}
    if(complete&&kind=="modpack")Get<Button>("DownloadsBack").RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
   }
   sealed class Both:IProgress<Update>{readonly IProgress<Update> a,b;public Both(IProgress<Update> x,IProgress<Update> y){a=x;b=y;}public void Report(Update u){a.Report(u);b.Report(u);}}
