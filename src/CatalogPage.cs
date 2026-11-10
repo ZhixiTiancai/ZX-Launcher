@@ -80,7 +80,15 @@ namespace FoolLauncher {
    try{await Runner(async(global,ct)=>{using(InstallCancel=CancellationTokenSource.CreateLinkedTokenSource(ct)){
     var uiProgress=new Progress<Update>(u=>{if(!Working)return;Status(u.Message);var bar=Get<ProgressBar>("CatalogProgress");bar.IsIndeterminate=u.Total<=0;if(u.Total>0){bar.Maximum=u.Total;bar.Value=u.Done;}});var progress=new Both(global,uiProgress);
     try{if(kind=="mod"){
-      if(version.Source!=project.Source||version.ProjectId!=project.Id)throw new IOException("所选版本不属于此项目。");var fresh=await Api.Version(version.Source,version.ProjectId,version.Id,InstallCancel.Token);var result=await Installer.Install(target,fresh,progress,InstallCancel.Token);Log("已安装到“"+target.Name+"”："+result.Files+" 个新文件，解析 "+result.Dependencies+" 个必需前置，替换 "+result.Replaced+" 个旧文件。备份："+result.Backup);Window.Dispatcher.Invoke(()=>Imported(new Instance{Id=target.Id}));
+      if(version.Source!=project.Source||version.ProjectId!=project.Id)throw new IOException("所选版本不属于此项目。");
+      var token=InstallCancel.Token;progress.Report(new Update("正在解析必需前置…"));
+      var fresh=await Api.Version(version.Source,version.ProjectId,version.Id,token);
+      var plan=await Installer.Resolve(target,fresh,token);
+      token.ThrowIfCancellationRequested();
+      if(plan.Count>1&&!ModDownloadDialogs.Download(Window,target,fresh,plan))throw new OperationCanceledException();
+      var result=await Task.Run(()=>Installer.InstallResolved(target,plan,progress,token,changes=>Window.Dispatcher.InvokeAsync(()=>{token.ThrowIfCancellationRequested();return ModDownloadDialogs.Replace(Window,target,changes);}).Task),token);
+      Log(result.Files==0&&result.Replaced==0?"所需模组文件已存在并通过校验。":"已安装到“"+target.Name+"”："+result.Files+" 个新文件，解析 "+result.Dependencies+" 个必需前置，替换 "+result.Replaced+" 个旧文件。备份："+result.Backup);
+      Window.Dispatcher.Invoke(()=>Imported(new Instance{Id=target.Id}));
      }else{var fresh=await Api.Version(version.Source,version.ProjectId,version.Id,InstallCancel.Token);installed=await Installer.InstallPack(project,fresh,progress,i=>Window.Dispatcher.Invoke(()=>Imported(i)),InstallCancel.Token);Window.Dispatcher.Invoke(()=>Imported(installed));Log("整合包“"+installed.Name+"”已添加到整合包库。"+(installed.Ready?"文件已补全。":"部分文件待补全，可在库中重试。"));}complete=true;}
     catch(OperationCanceledException){Window.Dispatcher.Invoke(()=>Status(UiText.T("下载已取消，原有 Mod 保持不变；已导入的整合包可在库中继续补全。")));throw;}
     catch(Exception ex){Window.Dispatcher.Invoke(()=>Status(ex.Message));throw;}
