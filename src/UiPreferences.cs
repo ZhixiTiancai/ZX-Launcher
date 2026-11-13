@@ -43,8 +43,9 @@ namespace FoolLauncher {
    catch{Settings.Background=old;if(File.Exists(path))File.Delete(path);throw;}
   }
   public void Apply(Window window){
+   if(Application.Current!=null)foreach(var type in new[]{typeof(System.Windows.Controls.ComboBox),typeof(System.Windows.Controls.ComboBoxItem),typeof(System.Windows.Controls.TextBox),typeof(System.Windows.Controls.Primitives.ScrollBar)})if(window.Resources.Contains(type))Application.Current.Resources[type]=window.Resources[type];
    UiText.Language=Settings.Language;UiText.Apply(window);var p=Themes.First(t=>t.Id==Settings.Theme);
-   var colors=new Dictionary<string,string>{{"Base",p.Base},{"Panel",p.Panel},{"Hero",p.Hero},{"Log",p.Log},{"Button",p.Button},{"Badge",p.Selected},{"Selection",p.Selected},{"Icon",p.Button},{"Editor",p.Log},{"Text",p.Text},{"Muted",p.Muted},{"Accent",p.Accent},{"AccentText",p.AccentText},{"Danger",p.Id=="white"?"#B92E41":"#EF8B8B"},{"Error",p.Id=="white"?"#AA3045":"#FFA49B"}};
+   var colors=new Dictionary<string,string>{{"Dropdown",p.Panel},{"Base",p.Base},{"Panel",p.Panel},{"Hero",p.Hero},{"Log",p.Log},{"Button",p.Button},{"Badge",p.Selected},{"Selection",p.Selected},{"Icon",p.Button},{"Editor",p.Log},{"Text",p.Text},{"Muted",p.Muted},{"Accent",p.Accent},{"AccentText",p.AccentText},{"Danger",p.Id=="white"?"#B92E41":"#EF8B8B"},{"Error",p.Id=="white"?"#AA3045":"#FFA49B"}};
    foreach(var pair in colors){var color=(Color)ColorConverter.ConvertFromString(pair.Value);if(BackgroundPath!=null&&File.Exists(BackgroundPath)&&(pair.Key=="Panel"||pair.Key=="Hero"||pair.Key=="Log"))color.A=232;var brush=new SolidColorBrush(color);brush.Freeze();window.Resources["Brush."+pair.Key]=brush;if(Application.Current!=null)Application.Current.Resources["Brush."+pair.Key]=brush;}
   }
  }
