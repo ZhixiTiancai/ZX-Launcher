@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
@@ -8,7 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 namespace FoolLauncher {
  public static class SelfTests {
-  public static int Run() {
+  public static int Run() { NetworkWaitTests.Run();
    string root=Path.Combine(Environment.CurrentDirectory,"build","test-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(root);
    foreach(string bad in new[]{"../outside","a/../../outside","C:/outside","/outside","a/CON.txt","a\\..\\outside","file:stream","a/NUL"}) {
     bool rejected=false;try{PackService.SafePath(root,bad);}catch(InvalidDataException){rejected=true;}if(!rejected)throw new Exception("Unsafe path accepted: "+bad);

@@ -14,7 +14,7 @@ using Microsoft.Win32;
 
 [assembly:System.Reflection.AssemblyTitle("智熄的启动器")]
 [assembly:System.Reflection.AssemblyProduct("智熄的启动器")]
-[assembly:System.Reflection.AssemblyVersion("0.4.0.0")]
+[assembly:System.Reflection.AssemblyVersion("0.4.1.0")]
 namespace FoolLauncher {
  public static class Program {
   [STAThread] public static int Main(string[] args) {
@@ -185,13 +185,16 @@ namespace FoolLauncher {
   async Task Run(Func<IProgress<Update>,Task> action,bool needsEngineStopped=true) {
    if(Busy)return;if(needsEngineStopped&&EngineRunning()){Log(UiText.T("请先退出随附的 Prism 和游戏，再修改整合包文件。 "));return;}
    Busy=true;TaskCancel=new CancellationTokenSource();SetEnabled();TaskProgress.IsIndeterminate=true;
-   var progress=new Progress<Update>(u=>{
+   bool finished=false,cancelled=false,failed=false,ended=false;string taskResult="";Action<Update> receive=u=>{
+    if(ended)return;
+    taskResult=u.Message;
     TaskProgress.IsIndeterminate=u.Total==0;if(u.Total>0){TaskProgress.Maximum=u.Total;TaskProgress.Value=u.Done;}
     if((DateTime.UtcNow-LastProgress).TotalMilliseconds>300||u.Done==u.Total&&u.Total>0){Log(u.Message);LastProgress=DateTime.UtcNow;}
-   });
-   bool openJava=false;int requiredJava=0;try{await action(progress);}catch(JavaRequirementException ex){Log(ex.Message);requiredJava=ex.Majors.FirstOrDefault();openJava=JavaRequirementDialog.Show(Window,ex.Message);}catch(OperationCanceledException){Log(UiText.T("任务已停止。再次补全时会跳过已校验完成的文件。"));}catch(Exception ex){Log("操作未完成："+ex.Message);MessageBox.Show(Window,ex.Message,UiText.T("操作未完成"));}
-   finally{Busy=false;TaskCancel.Dispose();TaskCancel=null;TaskProgress.IsIndeterminate=false;SetEnabled();ShowPack();if(openJava&&Pages!=null)Pages.OpenJavaDownload(requiredJava);if(CloseAfterTask){var pendingClose=Window.Dispatcher.BeginInvoke(new Action(()=>Window.Close()));}}
+   };var progress=new DirectProgress(u=>{if(Window.Dispatcher.CheckAccess())receive(u);else Window.Dispatcher.Invoke(()=>receive(u));});
+   bool openJava=false;int requiredJava=0;try{await action(progress);finished=true;}catch(JavaRequirementException ex){failed=true;taskResult=ex.Message;Log(ex.Message);requiredJava=ex.Majors.FirstOrDefault();openJava=JavaRequirementDialog.Show(Window,ex.Message);}catch(OperationCanceledException){cancelled=true;taskResult="任务已取消，已完成的文件会保留。";Log(UiText.T("任务已停止。再次补全时会跳过已校验完成的文件。"));}catch(Exception ex){failed=true;taskResult=ex.Message;Log("操作未完成："+ex.Message);MessageBox.Show(Window,ex.Message,UiText.T("操作未完成"));}
+   finally{ended=true;Busy=false;TaskCancel.Dispose();TaskCancel=null;TaskProgress.IsIndeterminate=false;SetEnabled();ShowPack();if(openJava&&Pages!=null)Pages.OpenJavaDownload(requiredJava);if(!CloseAfterTask){if(finished&&!String.IsNullOrWhiteSpace(LastMessage))taskResult=LastMessage;cancelled=cancelled||taskResult.Contains("已取消")||taskResult.Contains("已停止");bool partial=taskResult.Contains("下载失败")||System.Text.RegularExpressions.Regex.IsMatch(taskResult,@"未完成或未识别 [1-9]");string title=cancelled?"任务已取消":failed?"任务未完成":partial?"任务结束，请查看结果":"任务已完成";if(finished&&!partial&&!cancelled){TaskProgress.Maximum=100;TaskProgress.Value=100;}Log(title+" · "+taskResult);TaskNotice.Show(Window,title,String.IsNullOrWhiteSpace(taskResult)?"操作已完成，详情可在任务记录中查看。":taskResult);}if(CloseAfterTask){var pendingClose=Window.Dispatcher.BeginInvoke(new Action(()=>Window.Close()));}}
   }
+  sealed class DirectProgress:IProgress<Update>{readonly Action<Update> Receive;public DirectProgress(Action<Update> receive){Receive=receive;}public void Report(Update update){Receive(update);}}
   void Try(Action action){try{action();}catch(JavaRequirementException ex){Log(ex.Message);if(JavaRequirementDialog.Show(Window,ex.Message)&&Pages!=null)Pages.OpenJavaDownload(ex.Majors.FirstOrDefault());}catch(Exception ex){Log(ex.Message);MessageBox.Show(Window,ex.Message,UiText.T("操作未完成"));}}
   void Log(string message) {
    if(message==LastMessage)return;LastMessage=message;string line=DateTime.Now.ToString("HH:mm:ss")+"  "+message+Environment.NewLine;

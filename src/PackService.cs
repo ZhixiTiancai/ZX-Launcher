@@ -232,10 +232,10 @@ namespace FoolLauncher {
     string actual=BitConverter.ToString(hash.ComputeHash(file)).Replace("-","");return String.Equals(actual,f.hashes[key],StringComparison.OrdinalIgnoreCase);
    }
   }
-  internal async Task Download(PackFile f,string target,CancellationToken ct,int timeoutSeconds=240) {
+  internal async Task Download(PackFile f,string target,CancellationToken ct,int timeoutSeconds=240,Action<string> status=null) {
    if(f.downloads.Length==0)throw new IOException("此文件未提供自动下载地址。请通过缺失清单中的 CurseForge 网页下载，再使用“补入已下载文件”。");
    string error="没有可用下载地址";
-   var urls=f.downloads.OrderBy(u=>u.Contains("cdn.modrinth.com")?0:u.Contains("mediafilez")?1:2).Distinct().ToArray();
+   var urls=f.downloads.SelectMany(u=>new Uri(u).Host=="mediafilez.forgecdn.net"?new[]{u,new UriBuilder(u){Host="media.forgecdn.net"}.Uri.AbsoluteUri}:new[]{u}).OrderBy(u=>u.Contains("cdn.modrinth.com")?0:u.Contains("mediafilez")?1:2).Distinct().ToArray();
    for(int attempt=0;attempt<2;attempt++)foreach(string url in urls) {
     ct.ThrowIfCancellationRequested();
     string temp=target+".download";
@@ -243,16 +243,21 @@ namespace FoolLauncher {
      Directory.CreateDirectory(Path.GetDirectoryName(target));
      using(var deadline=CancellationTokenSource.CreateLinkedTokenSource(ct)) {
       deadline.CancelAfter(TimeSpan.FromSeconds(timeoutSeconds));
-      using(var response=await Http.GetAsync(url,HttpCompletionOption.ResponseHeadersRead,deadline.Token).ConfigureAwait(false)) {
+      try {
+      if(status!=null)status("连接 "+new Uri(url).Host+"（第 "+(attempt+1)+" 轮）");
+      using(var response=await NetworkWait.Bounded(Http.GetAsync(url,HttpCompletionOption.ResponseHeadersRead,deadline.Token),30000,deadline.Token).ConfigureAwait(false)) {
        if(!response.IsSuccessStatusCode)throw new IOException("HTTP "+(int)response.StatusCode+"（"+new Uri(url).Host+"）");
        using(var input=await response.Content.ReadAsStreamAsync().ConfigureAwait(false))using(var output=new FileStream(temp,FileMode.Create,FileAccess.Write,FileShare.None,81920,true)) {
         var buffer=new byte[81920];long length=0;int n;
-        while((n=await input.ReadAsync(buffer,0,buffer.Length,deadline.Token).ConfigureAwait(false))>0) {
+        DateTime last=DateTime.MinValue;
+        while((n=await NetworkWait.Bounded(input.ReadAsync(buffer,0,buffer.Length,deadline.Token),20000,deadline.Token).ConfigureAwait(false))>0) {
          length+=n;if(length>f.fileSize)throw new IOException("下载文件大小超出清单。");
          await output.WriteAsync(buffer,0,n,deadline.Token).ConfigureAwait(false);
+         if(status!=null&&(DateTime.UtcNow-last).TotalMilliseconds>700){status((length/1048576.0).ToString("0.0")+" / "+(f.fileSize/1048576.0).ToString("0.0")+" MB");last=DateTime.UtcNow;}
         }
        }
       }
+      }finally{deadline.Cancel();}
      }
      if(!Verify(temp,f))throw new IOException("文件哈希校验失败");
      if(File.Exists(target))File.Replace(temp,target,null);else File.Move(temp,target);return;
@@ -263,20 +268,22 @@ namespace FoolLauncher {
   }
   public async Task<int> Repair(Instance instance,IProgress<Update> progress,CancellationToken ct) {
    var pack=Index(instance);var files=pack.files.Where(ClientFile).ToArray();var failures=new List<MissingFile>();
-   var gate=new SemaphoreSlim(6);int done=0;
+   var gate=new SemaphoreSlim(6);int done=0;var active=new Dictionary<string,string>();var sync=new object();
    instance.FileCount=files.Length;instance.Ready=false;Json.Write(Path.Combine(Folder(instance),"launcher-instance.json"),instance);
-   await Task.WhenAll(files.Select(async file=>{
+   using(var heartbeat=new Timer(_=>{string text;lock(sync)text=String.Join("；",active.Take(3).Select(p=>Path.GetFileName(p.Key)+" "+p.Value));if(text!="")progress.Report(new Update("已处理 "+Volatile.Read(ref done)+" / "+files.Length+" · "+text,Volatile.Read(ref done),files.Length));},null,1000,1500))
+   try{await Task.WhenAll(files.Select(async file=>{
     await gate.WaitAsync(ct).ConfigureAwait(false);
     try {
-     ct.ThrowIfCancellationRequested();string target=SafePath(Game(instance),file.path);
+     ct.ThrowIfCancellationRequested();string target=SafePath(Game(instance),file.path);lock(sync)active[file.path]="校验中";
      if(!await Task.Run(()=>Verify(target,file),ct).ConfigureAwait(false)) {
       progress.Report(new Update("正在下载 "+Path.GetFileName(file.path),Volatile.Read(ref done),files.Length));
-      await Download(file,target,ct).ConfigureAwait(false);
+      await Download(file,target,ct,status:message=>{lock(sync)active[file.path]=message;}).ConfigureAwait(false);
      }
     }catch(OperationCanceledException){throw;}
     catch(Exception ex){lock(failures)failures.Add(new MissingFile{path=file.path,reason=ex.Message,downloads=file.downloads.Concat(file.manualUrl==null?new string[0]:new[]{file.manualUrl}).ToArray()});}
-    finally{int count=Interlocked.Increment(ref done);progress.Report(new Update("已校验 "+count+" / "+files.Length+" 个文件",count,files.Length));gate.Release();}
-   })).ConfigureAwait(false);
+    finally{lock(sync)active.Remove(file.path);int count=Interlocked.Increment(ref done);progress.Report(new Update("已处理 "+count+" / "+files.Length+" 个文件",count,files.Length));gate.Release();}
+   })).ConfigureAwait(false);}
+   finally{gate.Dispose();Json.Write(Path.Combine(Folder(instance),"missing-files.json"),failures);}
    Json.Write(Path.Combine(Folder(instance),"missing-files.json"),failures);
    instance.Ready=failures.Count==0;Json.Write(Path.Combine(Folder(instance),"launcher-instance.json"),instance);
    progress.Report(new Update(failures.Count==0?"整合包文件全部就绪。启动时还会检查游戏本体与模组加载器依赖。":"有 "+failures.Count+" 个文件下载失败，可重试或补入已下载文件。",files.Length,files.Length));
