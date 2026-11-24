@@ -14,7 +14,7 @@ using Microsoft.Win32;
 
 [assembly:System.Reflection.AssemblyTitle("智熄的启动器")]
 [assembly:System.Reflection.AssemblyProduct("智熄的启动器")]
-[assembly:System.Reflection.AssemblyVersion("0.4.1.0")]
+[assembly:System.Reflection.AssemblyVersion("0.4.2.0")]
 namespace FoolLauncher {
  public static class Program {
   [STAThread] public static int Main(string[] args) {
@@ -54,6 +54,7 @@ namespace FoolLauncher {
   LauncherPages Pages;Button DeletePackButton;
   public Window Window;readonly PackService Service;readonly PackIcons Icons;readonly AccountStore Accounts;Button AccountButton;
   ListBox PackList;TextBlock PackName,PackInfo,AccountText,RenameError;TextBox LogBox,RenameInput;ComboBox MemoryBox;ProgressBar TaskProgress;
+  Button RetryButton;Instance ManualRetryTarget,RetryRequested;
   Button ImportButton,LaunchButton,RepairButton,FolderButton,EngineButton,CancelButton,LocalButton,MissingButton,RenameButton,RenameSaveButton,RenameCancelButton;
   CancellationTokenSource TaskCancel;bool Busy,CloseAfterTask;DateTime LastProgress=DateTime.MinValue;string LastMessage="";bool MemoryLoading;
   Button IconButton,IconLocalButton,IconDownloadButton,IconResetButton,IconCloseButton,ExportButton,ModsButton,SaveExportButton;Image PackIcon;Border IconEditor;TextBox IconUrl;FrameworkElement PackActions;
@@ -67,7 +68,7 @@ namespace FoolLauncher {
    using(var stream=File.OpenRead(Path.Combine(program,"App.xaml")))Window=(Window)XamlReader.Load(stream);
    using(var stream=typeof(Program).Assembly.GetManifestResourceStream("FoolLauncher.Logo.png")){var bitmap=new System.Windows.Media.Imaging.BitmapImage();bitmap.BeginInit();bitmap.CacheOption=System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;bitmap.StreamSource=stream;bitmap.EndInit();bitmap.Freeze();Window.Icon=bitmap;}
    PackList=Get<ListBox>("PackList");PackName=Get<TextBlock>("PackName");PackInfo=Get<TextBlock>("PackInfo");AccountText=Get<TextBlock>("AccountText");LogBox=Get<TextBox>("LogBox");MemoryBox=Get<ComboBox>("MemoryBox");TaskProgress=Get<ProgressBar>("TaskProgress");
-   ImportButton=Get<Button>("ImportButton");LaunchButton=Get<Button>("LaunchButton");RepairButton=Get<Button>("RepairButton");FolderButton=Get<Button>("FolderButton");EngineButton=Get<Button>("EngineButton");CancelButton=Get<Button>("CancelButton");LocalButton=Get<Button>("LocalButton");MissingButton=Get<Button>("MissingButton");
+   ImportButton=Get<Button>("ImportButton");LaunchButton=Get<Button>("LaunchButton");RepairButton=Get<Button>("RepairButton");FolderButton=Get<Button>("FolderButton");EngineButton=Get<Button>("EngineButton");RetryButton=Get<Button>("RetryButton");CancelButton=Get<Button>("CancelButton");LocalButton=Get<Button>("LocalButton");MissingButton=Get<Button>("MissingButton");
    AccountButton=Get<Button>("AccountButton");AccountButton.Click+=(s,e)=>Try(()=>new AccountWindow(Window,Accounts,EngineRunning,RefreshAccount).Show());
    RenameButton=Get<Button>("RenameButton");RenameButton.Click+=(s,e)=>Try(RenamePack);
    RenameInput=Get<TextBox>("RenameInput");RenameError=Get<TextBlock>("RenameError");RenameSaveButton=Get<Button>("RenameSaveButton");RenameCancelButton=Get<Button>("RenameCancelButton");
@@ -110,13 +111,14 @@ namespace FoolLauncher {
     await ImportPackages(new[]{picker.FileName});
    };
    new PackDrop(Get<Border>("PackDropZone"),Get<Border>("PackDropCue"),Get<TextBlock>("PackDropHint"),()=>Busy,EngineRunning,ImportPackages,Log);
-   RepairButton.Click+=async(s,e)=>{var i=Current;if(i==null)return;await Run(async p=>{await Service.Repair(i,p,TaskCancel.Token);var metadata=new MetadataCache(Service.Data);await metadata.Ensure(Service.Folder(i),p,TaskCancel.Token);await new GameFiles(Service).Ensure(metadata.VersionFiles,p,TaskCancel.Token);Refresh(i.Id);});};
-   CancelButton.Click+=(s,e)=>{if(TaskCancel!=null){TaskCancel.Cancel();Log(UiText.T("正在停止任务，已完成的文件会保留。 "));}};
+   RepairButton.Click+=async(s,e)=>{var i=Current;if(i!=null)await Run(p=>DownloadPack(i,p,true));};
+   RetryButton.Click+=async(s,e)=>{if(EngineRunning())return;if(Busy){if(ManualRetryTarget==null||RetryRequested!=null)return;RetryRequested=ManualRetryTarget;RetryButton.IsEnabled=false;TaskCancel.Cancel();Log("正在停止本次下载，随后按你的选择重新下载未完成文件；已校验文件保留。");}else{var i=Current;if(i==null)return;Service.NextDownloadSource();await Run(p=>DownloadPack(i,p,true));}};
+   CancelButton.Click+=(s,e)=>{if(TaskCancel!=null){RetryRequested=null;TaskCancel.Cancel();Log(UiText.T("正在停止任务，已完成的文件会保留。 "));}};
    LaunchButton.Click+=async(s,e)=>{
     var i=Current;if(i==null)return;
     string accountArguments;try{accountArguments=Accounts.LaunchArguments();}catch(Exception ex){Log(ex.Message);new AccountWindow(Window,Accounts,EngineRunning,RefreshAccount).Show();return;}
     if(EngineRunning()){Log("Prism 正在运行。请在 Prism 内启动该整合包，或退出 Prism 后再点击启动。");OpenEngine(null);return;}
-    await Run(async p=>{int missing=await Service.Repair(i,p,TaskCancel.Token);Refresh(i.Id);if(missing!=0)throw new IOException(UiText.T("整合包仍有缺失文件，已阻止启动。可查看缺失清单或重试补全。"));var metadata=new MetadataCache(Service.Data);await metadata.Ensure(Service.Folder(i),p,TaskCancel.Token);await new GameFiles(Service).Ensure(metadata.VersionFiles,p,TaskCancel.Token);Service.ConfigureInstance(i,Memory,true);ConfigureEngine();using(var engine=StartEngine(i.Id,accountArguments)){await EngineLaunchUi.Wait(Window,engine,i.Name,p,TaskCancel.Token);}});
+    await Run(async p=>{await DownloadPack(i,p,true);if(!i.Ready)throw new IOException(UiText.T("整合包仍有缺失文件，已阻止启动。可查看缺失清单或重试补全。"));Service.ConfigureInstance(i,Memory,true);ConfigureEngine();using(var engine=StartEngine(i.Id,accountArguments)){await EngineLaunchUi.Wait(Window,engine,i.Name,p,TaskCancel.Token);}});
    };
    EngineButton.Click+=(s,e)=>Try(()=>{if(!EngineRunning())ConfigureEngine();OpenEngine(null);Log("已打开游戏引擎高级设置。账号可从本启动器右上角管理。");});
    FolderButton.Click+=(s,e)=>{if(Current!=null)Try(()=>OpenPath(Service.Game(Current)));};
@@ -148,13 +150,20 @@ namespace FoolLauncher {
     var failures=new List<string>();int imported=0;
     foreach(string source in sources) {
      TaskCancel.Token.ThrowIfCancellationRequested();
-     try{Log(UiText.T("正在导入：")+Path.GetFileName(source));var i=await Service.Import(source,progress,TaskCancel.Token);Refresh(i.Id);imported++;await Service.Repair(i,progress,TaskCancel.Token);Refresh(i.Id);}
+     try{Log(UiText.T("正在导入：")+Path.GetFileName(source));var i=await Service.Import(source,progress,TaskCancel.Token);Refresh(i.Id);imported++;await DownloadPack(i,progress,false);}
      catch(OperationCanceledException){throw;}
      catch(Exception ex){if(sources.Length==1)throw;string failure=Path.GetFileName(source)+"："+ex.Message;failures.Add(failure);Log(UiText.T("导入未完成：")+failure);}
     }
     if(sources.Length>1)Log("批量导入结束：已添加 "+imported+" / "+sources.Length+" 个整合包。请检查各包的补全状态。");
     if(failures.Count>0)MessageBox.Show(Window,String.Join("\n\n",failures),"以下整合包未能完成导入");
    });
+  }
+  async Task DownloadPack(Instance instance,IProgress<Update> progress,bool gameFiles){
+   ManualRetryTarget=instance;SetEnabled();try{
+    int missing=await Service.Repair(instance,progress,TaskCancel.Token);
+    if(missing==0&&gameFiles){var metadata=new MetadataCache(Service.Data);await metadata.Ensure(Service.Folder(instance),progress,TaskCancel.Token);await new GameFiles(Service).Ensure(metadata.VersionFiles,progress,TaskCancel.Token);}
+    Refresh(instance.Id);
+   }finally{ManualRetryTarget=null;SetEnabled();}
   }
   void RenamePack() {
    var instance=Current;if(instance==null||Busy)return;
@@ -181,7 +190,7 @@ namespace FoolLauncher {
    if(i!=null){MemoryLoading=true;try{string file=Path.Combine(Service.Folder(i),"instance.cfg");if(File.Exists(file)){var line=File.ReadAllLines(file).FirstOrDefault(l=>l.StartsWith("MaxMemAlloc="));int m;if(line!=null&&int.TryParse(line.Substring(12),out m)){foreach(ComboBoxItem item in MemoryBox.Items)if((int)item.Tag==m)MemoryBox.SelectedItem=item;}}}finally{MemoryLoading=false;}}
    SetEnabled();
   }
-  void SetEnabled() {bool selected=Current!=null;if(DeletePackButton!=null)DeletePackButton.IsEnabled=!Busy&&selected;ImportButton.IsEnabled=!Busy;PackList.IsEnabled=!Busy;MemoryBox.IsEnabled=!Busy;EngineButton.IsEnabled=AccountButton.IsEnabled=!Busy;LaunchButton.IsEnabled=!Busy&&selected;RepairButton.IsEnabled=!Busy&&selected;FolderButton.IsEnabled=selected;ModsButton.IsEnabled=!Busy&&selected&&Current.Loader!="原版";ExportButton.IsEnabled=SaveExportButton.IsEnabled=!Busy&&selected;LocalButton.IsEnabled=!Busy&&selected;MissingButton.IsEnabled=selected;CancelButton.IsEnabled=Busy;IconButton.IsEnabled=!Busy&&selected;IconButton.Visibility=selected?Visibility.Visible:Visibility.Collapsed;IconLocalButton.IsEnabled=IconDownloadButton.IsEnabled=IconResetButton.IsEnabled=IconCloseButton.IsEnabled=IconUrl.IsEnabled=!Busy;RenameInput.IsEnabled=RenameSaveButton.IsEnabled=RenameCancelButton.IsEnabled=!Busy;RenameButton.IsEnabled=!Busy&&selected;RenameButton.Visibility=selected&&RenameInput.Visibility!=Visibility.Visible?Visibility.Visible:Visibility.Collapsed;}
+  void SetEnabled() {bool selected=Current!=null;if(DeletePackButton!=null)DeletePackButton.IsEnabled=!Busy&&selected;ImportButton.IsEnabled=!Busy;PackList.IsEnabled=!Busy;MemoryBox.IsEnabled=!Busy;EngineButton.IsEnabled=AccountButton.IsEnabled=!Busy;LaunchButton.IsEnabled=!Busy&&selected;RepairButton.IsEnabled=!Busy&&selected;FolderButton.IsEnabled=selected;ModsButton.IsEnabled=!Busy&&selected&&Current.Loader!="原版";ExportButton.IsEnabled=SaveExportButton.IsEnabled=!Busy&&selected;LocalButton.IsEnabled=!Busy&&selected;MissingButton.IsEnabled=selected;CancelButton.IsEnabled=Busy;RetryButton.IsEnabled=!CloseAfterTask&&!EngineRunning()&&selected&&(!Busy||ManualRetryTarget!=null&&RetryRequested==null);IconButton.IsEnabled=!Busy&&selected;IconButton.Visibility=selected?Visibility.Visible:Visibility.Collapsed;IconLocalButton.IsEnabled=IconDownloadButton.IsEnabled=IconResetButton.IsEnabled=IconCloseButton.IsEnabled=IconUrl.IsEnabled=!Busy;RenameInput.IsEnabled=RenameSaveButton.IsEnabled=RenameCancelButton.IsEnabled=!Busy;RenameButton.IsEnabled=!Busy&&selected;RenameButton.Visibility=selected&&RenameInput.Visibility!=Visibility.Visible?Visibility.Visible:Visibility.Collapsed;}
   async Task Run(Func<IProgress<Update>,Task> action,bool needsEngineStopped=true) {
    if(Busy)return;if(needsEngineStopped&&EngineRunning()){Log(UiText.T("请先退出随附的 Prism 和游戏，再修改整合包文件。 "));return;}
    Busy=true;TaskCancel=new CancellationTokenSource();SetEnabled();TaskProgress.IsIndeterminate=true;
@@ -193,6 +202,7 @@ namespace FoolLauncher {
    };var progress=new DirectProgress(u=>{if(Window.Dispatcher.CheckAccess())receive(u);else Window.Dispatcher.Invoke(()=>receive(u));});
    bool openJava=false;int requiredJava=0;try{await action(progress);finished=true;}catch(JavaRequirementException ex){failed=true;taskResult=ex.Message;Log(ex.Message);requiredJava=ex.Majors.FirstOrDefault();openJava=JavaRequirementDialog.Show(Window,ex.Message);}catch(OperationCanceledException){cancelled=true;taskResult="任务已取消，已完成的文件会保留。";Log(UiText.T("任务已停止。再次补全时会跳过已校验完成的文件。"));}catch(Exception ex){failed=true;taskResult=ex.Message;Log("操作未完成："+ex.Message);MessageBox.Show(Window,ex.Message,UiText.T("操作未完成"));}
    finally{ended=true;Busy=false;TaskCancel.Dispose();TaskCancel=null;TaskProgress.IsIndeterminate=false;SetEnabled();ShowPack();if(openJava&&Pages!=null)Pages.OpenJavaDownload(requiredJava);if(!CloseAfterTask){if(finished&&!String.IsNullOrWhiteSpace(LastMessage))taskResult=LastMessage;cancelled=cancelled||taskResult.Contains("已取消")||taskResult.Contains("已停止");bool partial=taskResult.Contains("下载失败")||System.Text.RegularExpressions.Regex.IsMatch(taskResult,@"未完成或未识别 [1-9]");string title=cancelled?"任务已取消":failed?"任务未完成":partial?"任务结束，请查看结果":"任务已完成";if(finished&&!partial&&!cancelled){TaskProgress.Maximum=100;TaskProgress.Value=100;}Log(title+" · "+taskResult);TaskNotice.Show(Window,title,String.IsNullOrWhiteSpace(taskResult)?"操作已完成，详情可在任务记录中查看。":taskResult);}if(CloseAfterTask){var pendingClose=Window.Dispatcher.BeginInvoke(new Action(()=>Window.Close()));}}
+   var retry=RetryRequested;RetryRequested=null;if(retry!=null&&!CloseAfterTask){Service.NextDownloadSource();await Run(p=>DownloadPack(retry,p,true));}
   }
   sealed class DirectProgress:IProgress<Update>{readonly Action<Update> Receive;public DirectProgress(Action<Update> receive){Receive=receive;}public void Report(Update update){Receive(update);}}
   void Try(Action action){try{action();}catch(JavaRequirementException ex){Log(ex.Message);if(JavaRequirementDialog.Show(Window,ex.Message)&&Pages!=null)Pages.OpenJavaDownload(ex.Majors.FirstOrDefault());}catch(Exception ex){Log(ex.Message);MessageBox.Show(Window,ex.Message,UiText.T("操作未完成"));}}

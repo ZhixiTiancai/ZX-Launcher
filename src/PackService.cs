@@ -62,6 +62,9 @@ namespace FoolLauncher {
   public string Data {get{return Path.Combine(Root,"data");}}
   public string InstanceRoot {get{return Path.Combine(Root,"versions");}}
   static readonly HttpClient Http=CreateHttp();
+  readonly HttpClient Downloader;
+  int DownloadSource;
+  internal void NextDownloadSource(){Interlocked.Increment(ref DownloadSource);}
   static HttpClient CreateHttp() {
    ServicePointManager.SecurityProtocol=SecurityProtocolType.Tls12;
    ServicePointManager.DefaultConnectionLimit=16;
@@ -70,7 +73,9 @@ namespace FoolLauncher {
    client.DefaultRequestHeaders.UserAgent.ParseAdd("FoolLauncher/0.1");
    return client;
   }
-  public PackService(string root) {
+  public PackService(string root):this(root,Http){}
+  internal PackService(string root,HttpClient downloader) {
+   Downloader=downloader;
    Root=Path.GetFullPath(root);Directory.CreateDirectory(Data);Directory.CreateDirectory(InstanceRoot);
    // Give migrated timestamp-only instance folders a recognizable pack name.
    foreach(string old in Directory.GetDirectories(InstanceRoot).Where(p=>Path.GetFileName(p).StartsWith("pack-",StringComparison.Ordinal))) {
@@ -234,23 +239,22 @@ namespace FoolLauncher {
   }
   internal async Task Download(PackFile f,string target,CancellationToken ct,int timeoutSeconds=240,Action<string> status=null) {
    if(f.downloads.Length==0)throw new IOException("此文件未提供自动下载地址。请通过缺失清单中的 CurseForge 网页下载，再使用“补入已下载文件”。");
-   string error="没有可用下载地址";
-   var urls=f.downloads.SelectMany(u=>new Uri(u).Host=="mediafilez.forgecdn.net"?new[]{u,new UriBuilder(u){Host="media.forgecdn.net"}.Uri.AbsoluteUri}:new[]{u}).OrderBy(u=>u.Contains("cdn.modrinth.com")?0:u.Contains("mediafilez")?1:2).Distinct().ToArray();
-   for(int attempt=0;attempt<2;attempt++)foreach(string url in urls) {
+   // Slow transfers keep their progress. Only an explicit user retry starts another request.
+   var urls=f.downloads.SelectMany(u=>new Uri(u).Host=="mediafilez.forgecdn.net"?new[]{u,new UriBuilder(u){Host="media.forgecdn.net"}.Uri.AbsoluteUri}:new[]{u}).Distinct().ToArray();
+   string url=urls[(int)((uint)Volatile.Read(ref DownloadSource)%(uint)urls.Length)];
     ct.ThrowIfCancellationRequested();
     string temp=target+".download";
     try {
      Directory.CreateDirectory(Path.GetDirectoryName(target));
      using(var deadline=CancellationTokenSource.CreateLinkedTokenSource(ct)) {
-      deadline.CancelAfter(TimeSpan.FromSeconds(timeoutSeconds));
       try {
-      if(status!=null)status("连接 "+new Uri(url).Host+"（第 "+(attempt+1)+" 轮）");
-      using(var response=await NetworkWait.Bounded(Http.GetAsync(url,HttpCompletionOption.ResponseHeadersRead,deadline.Token),30000,deadline.Token).ConfigureAwait(false)) {
+      if(status!=null)status("连接 "+new Uri(url).Host);
+      using(var response=await NetworkWait.Bounded(Downloader.GetAsync(url,HttpCompletionOption.ResponseHeadersRead,deadline.Token),Timeout.Infinite,deadline.Token).ConfigureAwait(false)) {
        if(!response.IsSuccessStatusCode)throw new IOException("HTTP "+(int)response.StatusCode+"（"+new Uri(url).Host+"）");
        using(var input=await response.Content.ReadAsStreamAsync().ConfigureAwait(false))using(var output=new FileStream(temp,FileMode.Create,FileAccess.Write,FileShare.None,81920,true)) {
         var buffer=new byte[81920];long length=0;int n;
         DateTime last=DateTime.MinValue;
-        while((n=await NetworkWait.Bounded(input.ReadAsync(buffer,0,buffer.Length,deadline.Token),20000,deadline.Token).ConfigureAwait(false))>0) {
+        while((n=await NetworkWait.Bounded(input.ReadAsync(buffer,0,buffer.Length,deadline.Token),Timeout.Infinite,deadline.Token).ConfigureAwait(false))>0) {
          length+=n;if(length>f.fileSize)throw new IOException("下载文件大小超出清单。");
          await output.WriteAsync(buffer,0,n,deadline.Token).ConfigureAwait(false);
          if(status!=null&&(DateTime.UtcNow-last).TotalMilliseconds>700){status((length/1048576.0).ToString("0.0")+" / "+(f.fileSize/1048576.0).ToString("0.0")+" MB");last=DateTime.UtcNow;}
@@ -261,10 +265,8 @@ namespace FoolLauncher {
      }
      if(!Verify(temp,f))throw new IOException("文件哈希校验失败");
      if(File.Exists(target))File.Replace(temp,target,null);else File.Move(temp,target);return;
-    }catch(Exception ex){if(ct.IsCancellationRequested)throw new OperationCanceledException(ct);error=ex is OperationCanceledException?"下载超时":ex.Message;}
+    }catch(Exception ex){if(ct.IsCancellationRequested)throw new OperationCanceledException(ct);throw new IOException("下载未完成，请手动重试："+ex.Message,ex);}
     finally{if(File.Exists(temp))File.Delete(temp);}
-   }
-   throw new IOException(error);
   }
   public async Task<int> Repair(Instance instance,IProgress<Update> progress,CancellationToken ct) {
    var pack=Index(instance);var files=pack.files.Where(ClientFile).ToArray();var failures=new List<MissingFile>();

@@ -36,7 +36,7 @@ namespace FoolLauncher {
   public static bool Cdn(Uri u){return u.Host.Equals("cdn.modrinth.com",StringComparison.OrdinalIgnoreCase)||u.Host.EndsWith(".forgecdn.net",StringComparison.OrdinalIgnoreCase)||u.Host.Equals("forgecdn.net",StringComparison.OrdinalIgnoreCase)||u.Host.EndsWith(".cursecdn.com",StringComparison.OrdinalIgnoreCase);}
   static async Task Read(string url,Stream output,long max,bool api,IProgress<long> progress,CancellationToken ct){
    Uri u=Https(url);if(api?!ApiHost(u):!Cdn(u))throw new InvalidDataException("此资源的下载来源不受支持。");
-   using(var timeout=CancellationTokenSource.CreateLinkedTokenSource(ct)){timeout.CancelAfter(TimeSpan.FromSeconds(api?35:900));
+   using(var timeout=CancellationTokenSource.CreateLinkedTokenSource(ct)){if(api||max==2*1024*1024)timeout.CancelAfter(TimeSpan.FromSeconds(api?35:30));
     for(int redirect=0;redirect<5;redirect++)using(var response=await Http.GetAsync(u,HttpCompletionOption.ResponseHeadersRead,timeout.Token).ConfigureAwait(false)){
      if((int)response.StatusCode>=300&&(int)response.StatusCode<400){if(response.Headers.Location==null)throw new IOException("下载重定向无效。");u=Https(new Uri(u,response.Headers.Location).AbsoluteUri);if(api?!ApiHost(u):!Cdn(u))throw new IOException("下载重定向到不支持的来源。");continue;}
      if(!response.IsSuccessStatusCode)throw new IOException("HTTP "+(int)response.StatusCode+"（"+u.Host+"）");
